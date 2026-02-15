@@ -1,0 +1,650 @@
+/**
+ * Provider Groups UI Styles (V2.1)
+ */
+
+/* ============================================================================
+   Settings Tabs
+   ============================================================================ */
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--figma-color-border);
+  margin-bottom: 16px;
+  padding: 0 0 0 0;
+}
+
+.settings-tab {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--figma-color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.settings-tab:hover {
+  background: var(--figma-color-bg-hover);
+  color: var(--figma-color-text);
+}
+
+.settings-tab.active {
+  color: var(--figma-color-text);
+  border-bottom-color: var(--figma-color-border-brand);
+}
+
+.settings-tab-content {
+  display: none;
+}
+
+.settings-tab-content.active {
+  display: block;
+}
+
+/* ============================================================================
+   Provider Groups List
+   ============================================================================ */
+
+.groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.groups-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--figma-color-text-secondary);
+  background: var(--figma-color-bg-secondary);
+  border-radius: 4px;
+}
+
+.groups-empty p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ============================================================================
+   Group Card
+   ============================================================================ */
+
+.group-card {
+  background: var(--figma-color-bg);
+  border: 1px solid var(--figma-color-border);
+  border-radius: 6px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.group-card:hover {
+  border-color: var(--figma-color-border-brand);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.group-card.disabled {
+  opacity: 0.6;
+}
+
+/* Group Header */
+.group-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.group-card-icon {
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--figma-color-bg-secondary);
+  border-radius: 4px;
+}
+
+.group-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--figma-color-text);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-card-provider {
+  font-size: 11px;
+  color: var(--figma-color-text-secondary);
+}
+
+.group-card-badge {
+  display: flex;
+  gap: 4px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.badge-active {
+  background: var(--figma-color-bg-brand);
+  color: white;
+}
+
+.badge-disabled {
+  background: var(--figma-color-bg-disabled);
+  color: var(--figma-color-text-disabled);
+}
+
+.badge-count {
+  background: var(--figma-color-bg-secondary);
+  color: var(--figma-color-text-secondary);
+}
+
+/* Group Details */
+.group-card-details {
+  margin: 8px 0;
+  padding: 8px;
+  background: var(--figma-color-bg-secondary);
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.group-card-api-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.group-card-api-key-label {
+  color: var(--figma-color-text-secondary);
+}
+
+.group-card-api-key-value {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: var(--figma-color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Models List */
+.group-models {
+  margin-top: 8px;
+}
+
+.group-models-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 4px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.group-models-header:hover .group-models-title {
+  color: var(--figma-color-text);
+}
+
+.group-models-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text-secondary);
+  transition: color 0.2s;
+}
+
+.group-models-toggle {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+}
+
+.group-models-list {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 12px;
+  border-left: 2px solid var(--figma-color-border);
+}
+
+.group-models-list.expanded {
+  display: flex;
+}
+
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--figma-color-bg);
+  border-radius: 3px;
+  font-size: 11px;
+  transition: background 0.2s;
+}
+
+.model-item:hover {
+  background: var(--figma-color-bg-hover);
+}
+
+.model-item.disabled {
+  opacity: 0.5;
+}
+
+.model-item-name {
+  flex: 1;
+  color: var(--figma-color-text);
+}
+
+.model-item-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.model-item-btn {
+  padding: 2px 6px;
+  border: none;
+  background: var(--figma-color-bg-secondary);
+  color: var(--figma-color-text-secondary);
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.2s;
+}
+
+.model-item-btn:hover {
+  background: var(--figma-color-bg-hover);
+  color: var(--figma-color-text);
+}
+
+/* Group Actions */
+.group-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--figma-color-border);
+}
+
+.group-card-actions button {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+/* ============================================================================
+   Group Editor Modal
+   ============================================================================ */
+
+.group-editor-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.group-editor-content {
+  background: var(--figma-color-bg);
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.group-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.group-editor-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+
+.group-editor-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--figma-color-text-secondary);
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.group-editor-close:hover {
+  background: var(--figma-color-bg-hover);
+  color: var(--figma-color-text);
+}
+
+.group-editor-section {
+  margin-bottom: 16px;
+}
+
+.group-editor-section label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+
+.group-editor-section input,
+.group-editor-section select {
+  width: 100%;
+}
+
+.group-editor-models {
+  margin-top: 16px;
+}
+
+.group-editor-models-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.group-editor-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-editor-model-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--figma-color-bg-secondary);
+  border-radius: 4px;
+}
+
+.group-editor-model-checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.group-editor-model-name {
+  flex: 1;
+  font-size: 11px;
+  color: var(--figma-color-text);
+}
+
+.group-editor-model-info {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+}
+
+.group-editor-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--figma-color-border);
+}
+
+.group-editor-actions button {
+  flex: 1;
+}
+
+/* ============================================================================
+   Export/Import Section
+   ============================================================================ */
+
+.export-import-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.export-import-buttons button {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 12px;
+}
+
+/* ============================================================================
+   Modal (Group Editor)
+   ============================================================================ */
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  position: relative;
+  background: var(--figma-color-bg);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
+.modal-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--figma-color-text-secondary);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.modal-close:hover {
+  background: var(--figma-color-bg-hover);
+  color: var(--figma-color-text);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--figma-color-border);
+  justify-content: flex-end;
+}
+
+.modal-footer button {
+  min-width: 100px;
+}
+
+/* Form Groups in Modal */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid var(--figma-color-border);
+  border-radius: 4px;
+  background: var(--figma-color-bg);
+  color: var(--figma-color-text);
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--figma-color-border-brand);
+}
+
+.form-group .hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+}
+
+/* API Key Input Group */
+.api-key-input-group {
+  display: flex;
+  gap: 4px;
+}
+
+.api-key-input-group input {
+  flex: 1;
+}
+
+.btn-icon {
+  padding: 8px 12px;
+  border: 1px solid var(--figma-color-border);
+  border-radius: 4px;
+  background: var(--figma-color-bg);
+  color: var(--figma-color-text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--figma-color-bg-hover);
+}
+
+/* Models Checkbox List */
+.models-checkbox-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--figma-color-border);
+  border-radius: 4px;
+  padding: 8px;
+  background: var(--figma-color-bg-secondary);
+}
+
+.models-checkbox-list .hint {
+  text-align: center;
+  padding: 20px;
+  color: var(--figma-color-text-secondary);
+  font-size: 11px;
+}
+
+.model-checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.model-checkbox-item:hover {
+  background: var(--figma-color-bg-hover);
+}
+
+.model-checkbox-item input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.model-checkbox-info {
+  flex: 1;
+}
+
+.model-checkbox-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--figma-color-text);
+  margin-bottom: 2px;
+}
+
+.model-checkbox-description {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+  line-height: 1.4;
+}
+
+.model-checkbox-pricing {
+  font-size: 10px;
+  color: var(--figma-color-text-tertiary);
+  margin-top: 2px;
+}

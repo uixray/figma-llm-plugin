@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Text Generator</title>
+</head>
+<body>
+  <!-- First-run language selection screen -->
+  <div id="language-select-screen" style="display: none;">
+    <div class="language-select-card">
+      <div class="language-select-icon">🌐</div>
+      <h2 class="language-select-title" data-i18n="welcome.title">Welcome to Figma LLM Plugin</h2>
+      <p class="language-select-subtitle" data-i18n="welcome.subtitle">Choose your preferred language</p>
+      <div class="language-buttons">
+        <button class="language-btn" data-lang="en">
+          <span class="language-btn-flag">🇬🇧</span>
+          <span class="language-btn-label">English</span>
+        </button>
+        <button class="language-btn" data-lang="ru">
+          <span class="language-btn-flag">🇷🇺</span>
+          <span class="language-btn-label">Русский</span>
+        </button>
+        <button class="language-btn" data-lang="ja">
+          <span class="language-btn-flag">🇯🇵</span>
+          <span class="language-btn-label">日本語</span>
+        </button>
+        <button class="language-btn" data-lang="zh">
+          <span class="language-btn-flag">🇨🇳</span>
+          <span class="language-btn-label">中文</span>
+        </button>
+        <button class="language-btn" data-lang="fr">
+          <span class="language-btn-flag">🇫🇷</span>
+          <span class="language-btn-label">Français</span>
+        </button>
+      </div>
+      <button id="language-continue-btn" class="btn-primary language-continue-btn" disabled data-i18n="welcome.continue">Continue</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="tabs">
+      <button class="tab active" data-tab="generate" data-i18n="tab.generate">Generate</button>
+      <button class="tab" data-tab="data" data-i18n="tab.data">Data</button>
+      <button class="tab" data-tab="rename" data-i18n="tab.rename">Rename</button>
+      <button class="tab" data-tab="settings" data-i18n="tab.settings">Settings</button>
+      <button class="tab" data-tab="help" data-i18n="tab.help">Help</button>
+    </div>
+
+    <!-- Generate Panel -->
+    <div id="generate-panel" class="panel active">
+      <!-- Provider selector for per-request choice -->
+      <div class="section">
+        <div class="provider-select-row">
+          <label data-i18n="generate.provider.label">Provider:</label>
+          <select id="generate-provider-select">
+            <option value="" data-i18n="generate.provider.noProvider">No providers configured</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label data-i18n="generate.prompt.label">Prompt:</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button id="saved-prompts-btn" class="btn-secondary" style="padding: 4px 8px; font-size: 12px;" data-i18n="generate.savedPrompts">📚 Saved Prompts</button>
+            <span id="selection-context-badge" class="context-badge" style="display: none;">📎 <span id="selection-context-count">0</span> <span data-i18n="generate.layersAttached">layers attached</span></span>
+          </div>
+        </div>
+        <textarea id="prompt-input" rows="4" data-i18n-placeholder="generate.prompt.placeholder" placeholder="Write your prompt — text from selected layers will be automatically included as context..."></textarea>
+      </div>
+
+      <div class="section collapsible">
+        <label class="collapsible-header" data-i18n="generate.advanced">Advanced ▼</label>
+        <div class="collapsible-content" style="display: none;">
+          <label data-i18n="generate.systemPrompt.label">System Prompt:</label>
+          <textarea id="system-prompt-input" rows="3" data-i18n-placeholder="generate.systemPrompt.placeholder" placeholder="Optional system prompt..."></textarea>
+
+          <label><span data-i18n="generate.temperature.label">Temperature:</span> <span id="temperature-value">0.7</span></label>
+          <input type="range" id="temperature-slider" min="0" max="2" step="0.1" value="0.7">
+
+          <label data-i18n="generate.maxTokens.label">Max Tokens:</label>
+          <input type="number" id="max-tokens-input" value="2000" min="1" max="100000">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="generate-btn" class="btn-primary" data-i18n="generate.btn">Generate & Apply</button>
+        <button id="cancel-btn" class="btn-secondary" style="display: none;" data-i18n="generate.cancel">Cancel</button>
+      </div>
+
+      <!-- Generation status bar -->
+      <div id="generation-status-section" class="section">
+        <div class="output-header">
+          <span id="output-status" data-i18n="generate.output.ready">Ready</span>
+          <span id="output-tokens">0 tokens</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel" class="panel">
+      <!-- Settings Tabs -->
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-tab="groups" data-i18n="settings.tab.groups">Provider Groups</button>
+        <button class="settings-tab" data-tab="legacy" data-i18n="settings.tab.legacy">Legacy Providers</button>
+        <button class="settings-tab" data-tab="general" data-i18n="settings.tab.general">General</button>
+      </div>
+
+      <!-- Groups Tab (V2.1) -->
+      <div id="settings-tab-groups" class="settings-tab-content active">
+        <div class="section">
+          <div class="settings-header">
+            <h3 data-i18n="settings.groups.title">Provider Groups</h3>
+            <button id="add-group-btn" class="btn-primary" data-i18n="settings.addGroup">+ Add Group</button>
+          </div>
+          <p class="hint" data-i18n="settings.groups.hint">Group multiple models under one API key for easier management</p>
+        </div>
+
+        <div class="section">
+          <div id="groups-list" class="groups-list">
+            <div class="groups-empty">
+              <p data-i18n="settings.groups.empty">No groups yet. Create your first group!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legacy Tab (V2.0) -->
+      <div id="settings-tab-legacy" class="settings-tab-content">
+        <div class="section">
+          <div class="settings-header">
+            <h3 data-i18n="settings.providers.title">AI Providers</h3>
+            <button id="add-provider-btn" class="btn-primary" data-i18n="settings.addProvider">+ Add Provider</button>
+          </div>
+          <p class="hint" data-i18n="settings.providers.hint">Configure multiple AI providers and switch between them easily</p>
+        </div>
+
+        <div class="section">
+          <div id="providers-list" class="providers-list">
+            <div class="providers-empty">
+              <p>Loading providers...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- General Tab -->
+      <div id="settings-tab-general" class="settings-tab-content">
+        <div class="section">
+          <h3 data-i18n="settings.general.title">General Settings</h3>
+
+          <label data-i18n="settings.general.language">Language:</label>
+          <select id="settings-language-select">
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="fr">Français</option>
+          </select>
+
+          <label data-i18n="settings.general.theme">Theme:</label>
+          <select id="settings-theme-select">
+            <option value="auto" data-i18n="settings.theme.auto">Auto</option>
+            <option value="light" data-i18n="settings.theme.light">Light</option>
+            <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+          </select>
+        </div>
+
+        <!-- Export/Import Section -->
+        <div class="section">
+          <h4 data-i18n="settings.exportImport.title">Backup & Restore</h4>
+          <p class="hint" data-i18n="settings.exportImport.hint">Export your settings to a file or import from a backup</p>
+
+          <div class="export-import-buttons">
+            <button id="export-settings-btn" class="btn-secondary" data-i18n="settings.export">📥 Export Settings</button>
+            <button id="import-settings-btn" class="btn-secondary" data-i18n="settings.import">📤 Import Settings</button>
+          </div>
+          <input type="file" id="import-settings-input" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save-settings-btn" class="btn-primary" data-i18n="settings.save">Save Settings</button>
+      </div>
+    </div>
+
+    <!-- Data Panel -->
+    <div id="data-panel" class="panel">
+      <!-- Выбор пресета -->
+      <div class="section">
+        <label data-i18n="data.activePreset">Active Preset:</label>
+        <div class="preset-selector">
+          <select id="preset-select">
+            <option value="" data-i18n="data.selectPreset">-- Select Preset --</option>
+          </select>
+          <button id="new-preset-btn" class="btn-secondary" data-i18n="data.newPreset">+ New</button>
+          <button id="edit-preset-btn" class="btn-secondary" style="display: none;" data-i18n="settings.card.edit">Edit</button>
+        </div>
+      </div>
+
+      <!-- Просмотр групп (карточки) -->
+      <div id="preset-viewer" class="section" style="display: none;">
+        <h3 data-i18n="data.groups">Groups</h3>
+        <div id="groups-cards-container">
+          <!-- Карточки групп -->
+        </div>
+      </div>
+
+      <!-- Редактор пресета -->
+      <div id="preset-editor" class="section" style="display: none;">
+        <h3 data-i18n="data.editPreset">Edit Preset</h3>
+
+        <label data-i18n="data.presetName">Preset Name:</label>
+        <input type="text" id="preset-name" data-i18n-placeholder="data.presetNamePlaceholder" placeholder="User Cards">
+
+        <label><span data-i18n="data.multiValueSeparator">Multi-value Separator:</span> <small data-i18n="data.multiValueSeparatorHint">(Used when layer name matches multiple fields)</small></label>
+        <input type="text" id="multi-value-separator" placeholder=", " value=", " maxlength="5">
+
+        <label><span data-i18n="data.fieldNames">Field Names & Default Values:</span> <small data-i18n="data.fieldNamesHint">(For reverse renaming by content)</small></label>
+        <div id="field-names-container">
+          <!-- Поля схемы -->
+        </div>
+        <button id="add-field-name-btn" class="btn-secondary" data-i18n="data.addField">+ Add Field</button>
+
+        <label><span data-i18n="data.valueGroups">Value Groups:</span> <small data-i18n="data.valueGroupsHint">(Each group = one component)</small></label>
+        <div id="preset-values-container">
+          <!-- Динамически добавляемые группы -->
+        </div>
+        <button id="add-group-btn" class="btn-secondary" data-i18n="data.addGroup">+ Add Group</button>
+
+        <div class="button-group">
+          <button id="save-preset-btn" class="btn-primary" data-i18n="modal.save">Save</button>
+          <button id="delete-preset-btn" class="btn-danger" data-i18n="modal.delete">Delete</button>
+          <button id="cancel-edit-btn" class="btn-secondary" data-i18n="modal.cancel">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Применение -->
+      <div class="section">
+        <button id="apply-substitution-btn" class="btn-primary" disabled data-i18n="generate.apply">
+          Apply to Selection
+        </button>
+      </div>
+
+      <!-- Импорт/Экспорт -->
+      <div class="section">
+        <h4 data-i18n="data.importExport">Import/Export</h4>
+        <div class="button-group">
+          <button id="export-preset-btn" class="btn-secondary" disabled data-i18n="data.exportPreset">
+            Export Preset
+          </button>
+          <button id="import-preset-btn" class="btn-secondary" data-i18n="data.importPreset">
+            Import Preset
+          </button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+      </div>
+    </div>
+
+    <!-- Rename Panel -->
+    <div id="rename-panel" class="panel">
+      <div class="section">
+        <h3 data-i18n="rename.title">Mass Layer Renaming</h3>
+        <p class="hint" data-i18n="rename.hint">Select frames, groups, or text layers and apply naming conventions. Components and vector elements will be skipped automatically.</p>
+      </div>
+
+      <!-- Mode Switcher -->
+      <div class="section">
+        <div class="rename-mode-switcher">
+          <label class="rename-mode-option">
+            <input type="radio" name="rename-mode" value="style" checked>
+            <span data-i18n="rename.styleMode">Style Mode</span>
+          </label>
+          <label class="rename-mode-option">
+            <input type="radio" name="rename-mode" value="ai">
+            <span data-i18n="rename.aiMode">AI Mode</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Style Mode Section -->
+      <div id="rename-style-section">
+        <div class="section">
+          <label data-i18n="rename.preset.label">Naming Preset:</label>
+          <select id="rename-preset-select">
+            <option value="" data-i18n="rename.preset.select">Select preset...</option>
+          </select>
+          <div id="rename-preset-description" class="preset-description"></div>
+        </div>
+
+        <div class="section">
+          <div class="actions">
+            <button id="rename-preview-btn" class="btn-secondary" data-i18n="rename.preview">Preview Changes</button>
+            <button id="rename-create-preset-btn" class="btn-secondary" data-i18n="rename.customPreset">+ Custom Preset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Mode Section -->
+      <div id="rename-ai-section" style="display: none;">
+        <div class="section">
+          <label data-i18n="rename.aiPrompt.label">AI Prompt:</label>
+          <textarea id="ai-rename-prompt" rows="3" data-i18n-placeholder="rename.aiPrompt.placeholder" placeholder="E.g.: Use semantic names based on content, follow BEM convention..."></textarea>
+        </div>
+
+        <div class="section">
+          <label class="checkbox-label">
+            <input type="checkbox" id="ai-rename-hierarchy" checked>
+            <span data-i18n="rename.includeHierarchy">Include layer hierarchy context</span>
+          </label>
+        </div>
+
+        <div class="section">
+          <div class="actions">
+            <button id="ai-rename-preview-btn" class="btn-secondary" data-i18n="rename.aiPreview">AI Preview</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared Preview (both modes) -->
+      <div class="section">
+        <div id="rename-preview-count" class="preview-count"></div>
+        <div id="rename-preview-list" class="preview-list"></div>
+      </div>
+
+      <div class="section">
+        <div class="actions">
+          <button id="rename-apply-btn" class="btn-primary" disabled data-i18n="rename.apply">Apply Renaming</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompts Modal (overlay, opened from Generate panel) -->
+    <div id="prompts-panel" class="modal-overlay" style="display: none;">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3 data-i18n="prompts.title">Saved Prompts Library</h3>
+          <button id="close-prompts-modal" class="btn-close">&times;</button>
+        </div>
+
+        <div class="section">
+          <div class="prompts-toolbar">
+            <input type="text" id="prompts-search" data-i18n-placeholder="prompts.search.placeholder" placeholder="Search prompts..." class="search-input">
+            <select id="prompts-category-filter" class="category-filter">
+              <option value="all" data-i18n="prompts.category.all">All Categories</option>
+            </select>
+            <button id="prompts-new-btn" class="btn-primary" data-i18n="prompts.new">+ New</button>
+          </div>
+        </div>
+
+        <!-- Inline форма создания/редактирования промпта -->
+        <div id="prompt-edit-form" class="section" style="display: none;">
+          <div class="prompt-form">
+            <div class="form-group">
+              <label data-i18n="prompts.form.name">Name *</label>
+              <input type="text" id="prompt-form-name" data-i18n-placeholder="prompts.form.namePlaceholder" placeholder="e.g. Translate to English">
+            </div>
+            <div class="form-group">
+              <label data-i18n="prompts.form.prompt">Prompt *</label>
+              <textarea id="prompt-form-content" rows="4" data-i18n-placeholder="prompts.form.promptPlaceholder" placeholder="Enter prompt text..."></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex: 1;">
+                <label data-i18n="prompts.form.category">Category</label>
+                <select id="prompt-form-category">
+                  <option value="General">General</option>
+                  <option value="Translation">Translation</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Technical">Technical</option>
+                  <option value="Creative">Creative</option>
+                  <option value="Editing">Editing</option>
+                  <option value="Code">Code</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label data-i18n="prompts.form.tags">Tags (comma-separated)</label>
+                <input type="text" id="prompt-form-tags" data-i18n-placeholder="prompts.form.tagsPlaceholder" placeholder="e.g. english, translate">
+              </div>
+            </div>
+            <div class="form-group">
+              <label data-i18n="prompts.form.provider">Preferred Provider</label>
+              <select id="prompt-form-provider">
+                <option value="" data-i18n="prompts.form.providerAny">Any (use active provider)</option>
+              </select>
+            </div>
+            <div class="prompt-form-actions">
+              <button id="prompt-form-cancel" class="btn-secondary" data-i18n="modal.cancel">Cancel</button>
+              <button id="prompt-form-save" class="btn-primary" data-i18n="prompts.form.save">Save Prompt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div id="prompts-list" class="prompts-list">
+            <div class="prompts-empty" data-i18n="prompts.empty">No prompts saved yet. Click "+ New" to save your first prompt.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="help-panel" class="panel">
+      <div class="help-language-section">
+        <label data-i18n="language.label">Language:</label>
+        <select id="help-language-select">
+          <option value="en">🇬🇧 English</option>
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="ja">🇯🇵 日本語</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="fr">🇫🇷 Français</option>
+        </select>
+      </div>
+
+      <div class="help-section">
+        <h3 data-i18n="help.quickStart.title">📖 Quick Start Guide</h3>
+
+        <h4 data-i18n="help.dataSubstitution.title">Data Substitution</h4>
+        <p data-i18n="help.dataSubstitution.desc">Replace placeholder text in your designs with real data using presets.</p>
+        <ol data-i18n-html="help.dataSubstitution.steps">
+          <li>Go to <strong>Data</strong> tab</li>
+          <li>Create a preset with field names (e.g., name, email, phone)</li>
+          <li>Add groups with values for each field</li>
+          <li>Select frames/components in Figma</li>
+          <li>Click <strong>Apply to Selection</strong></li>
+        </ol>
+
+        <h4 data-i18n="help.howItWorks.title">How It Works</h4>
+        <p data-i18n="help.howItWorks.desc">The plugin matches text layer names with field names and replaces their content:</p>
+        <ul data-i18n-html="help.howItWorks.examples">
+          <li>Layer named "name" → gets "John Doe"</li>
+          <li>Layer named "email" → gets "john@example.com"</li>
+          <li>Layer named "name_email" → gets "John Doe, john@example.com" (multi-value)</li>
+        </ul>
+
+        <h4 data-i18n="help.quickActions.title">Quick Actions Menu</h4>
+        <p data-i18n="help.quickActions.desc">Access fast preset application via: Plugins → LLM Text Generator</p>
+        <ul data-i18n-html="help.quickActions.items">
+          <li><strong>Built-in Presets</strong> - Instant application of User/Product/Place/Other templates</li>
+          <li><strong>Apply Custom Preset</strong> - Choose from your saved presets</li>
+          <li><strong>Rename Layers by Content</strong> - Auto-rename layers based on their text content</li>
+        </ul>
+
+        <h4 data-i18n="help.reverseRenaming.title">Reverse Renaming</h4>
+        <p data-i18n="help.reverseRenaming.desc">Quickly set up layer names based on content:</p>
+        <ol data-i18n-html="help.reverseRenaming.steps">
+          <li>Add default values to preset fields (e.g., name → "John Doe")</li>
+          <li>Select text layers with placeholder content</li>
+          <li>Use <strong>Rename Layers by Content</strong></li>
+          <li>Layers containing "John Doe" → renamed to "name"</li>
+        </ol>
+
+        <h4 data-i18n="help.importExport.title">Import/Export</h4>
+        <p data-i18n="help.importExport.desc">Share presets with your team:</p>
+        <ul data-i18n-html="help.importExport.items">
+          <li><strong>Export</strong> - Save preset as JSON file</li>
+          <li><strong>Import</strong> - Load preset from JSON file</li>
+        </ul>
+
+        <h4 data-i18n="help.tips.title">Tips</h4>
+        <ul data-i18n-html="help.tips.items">
+          <li>Use simple, clear field names (name, title, price)</li>
+          <li>Set multi-value separator for combined fields</li>
+          <li>Create multiple groups for batch processing</li>
+          <li>Groups apply cyclically if you have more components than groups</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h3 data-i18n="help.llm.title">🤖 LLM Text Generation</h3>
+        <p data-i18n="help.llm.desc">Generate creative text content using AI language models.</p>
+
+        <h4 data-i18n="help.providers.title">Supported Providers</h4>
+        <ul data-i18n-html="help.providers.items">
+          <li><strong>LM Studio</strong> - Local LLM hosting</li>
+          <li><strong>Yandex Cloud</strong> - YandexGPT API</li>
+          <li><strong>OpenAI Compatible</strong> - Any OpenAI-compatible API</li>
+        </ul>
+
+        <h4 data-i18n="help.setup.title">Setup</h4>
+        <ol data-i18n-html="help.setup.steps">
+          <li>Go to <strong>Settings</strong> tab</li>
+          <li>Select provider and enter credentials</li>
+          <li>Test connection</li>
+          <li>Save settings</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications"></div>
+
+    <!-- Group Editor Modal -->
+    <div id="group-editor-modal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="group-editor-title" data-i18n="settings.group.create">Create Provider Group</h3>
+          <button class="modal-close" id="group-editor-close">×</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Group Name -->
+          <div class="form-group">
+            <label data-i18n="settings.group.name">Group Name:</label>
+            <input type="text" id="group-name-input" placeholder="My OpenAI Models" data-i18n-placeholder="settings.group.namePlaceholder">
+          </div>
+
+          <!-- Provider Selection -->
+          <div class="form-group">
+            <label data-i18n="settings.group.provider">Provider:</label>
+            <select id="group-provider-select">
+              <option value="" data-i18n="settings.group.selectProvider">-- Select Provider --</option>
+              <option value="lmstudio">🖥️ LM Studio (Local)</option>
+              <option value="yandex">🇷🇺 Yandex GPT</option>
+              <option value="openai">🤖 OpenAI</option>
+              <option value="claude">🧠 Claude (Anthropic)</option>
+              <option value="gemini">✨ Google Gemini</option>
+              <option value="mistral">🌊 Mistral AI</option>
+              <option value="groq">⚡ Groq</option>
+              <option value="cohere">🔮 Cohere</option>
+            </select>
+          </div>
+
+          <!-- API Key -->
+          <div class="form-group">
+            <label data-i18n="settings.group.apiKey">API Key:</label>
+            <div class="api-key-input-group">
+              <input type="password" id="group-apikey-input" placeholder="sk-proj-..." data-i18n-placeholder="settings.group.apiKeyPlaceholder">
+              <button type="button" id="group-apikey-toggle" class="btn-icon">👁️</button>
+            </div>
+            <p class="hint" data-i18n="settings.group.apiKeyHint">Required for most providers. Not needed for LM Studio.</p>
+          </div>
+
+          <!-- Folder ID (Yandex only) -->
+          <div class="form-group" id="group-folderid-group" style="display: none;">
+            <label data-i18n="settings.group.folderId">Folder ID (Yandex):</label>
+            <input type="text" id="group-folderid-input" placeholder="b1g..." data-i18n-placeholder="settings.group.folderIdPlaceholder">
+          </div>
+
+          <!-- Model Selection -->
+          <div class="form-group">
+            <label data-i18n="settings.group.models">Select Models:</label>
+            <div id="group-models-list" class="models-checkbox-list">
+              <p class="hint" data-i18n="settings.group.selectProviderFirst">Select a provider first</p>
+            </div>
+            <p class="hint" id="group-models-count">Selected: 0 models</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" id="group-editor-cancel" data-i18n="modal.cancel">Cancel</button>
+          <button class="btn-primary" id="group-editor-save" data-i18n="settings.group.save">Save Group</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="ui.js"></script>
+</body>
+</html>

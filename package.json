@@ -1,0 +1,28 @@
+{
+  "name": "figma-llm-text-generator",
+  "version": "2.0.0",
+  "description": "UText - AI-powered text generation for Figma with 30+ LLM providers, mass layer renaming, and design automation",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "jest"
+  },
+  "keywords": [
+    "figma",
+    "plugin",
+    "llm",
+    "ai",
+    "text-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.95.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "UText - AI Text Generator",
+  "id": "llm-text-generator",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "menu": [
+    {
+      "name": "Built-in Presets",
+      "menu": [
+        {
+          "name": "User",
+          "command": "builtin-user"
+        },
+        {
+          "name": "Product",
+          "command": "builtin-product"
+        },
+        {
+          "name": "Place",
+          "command": "builtin-place"
+        },
+        {
+          "name": "Other",
+          "command": "builtin-other"
+        },
+        {
+          "separator": true
+        },
+        {
+          "name": "Red",
+          "command": "builtin-red"
+        },
+        {
+          "name": "Blue",
+          "command": "builtin-blue"
+        },
+        {
+          "name": "Green",
+          "command": "builtin-green"
+        },
+        {
+          "name": "Yellow",
+          "command": "builtin-yellow"
+        }
+      ]
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Apply Custom Preset...",
+      "command": "quick-apply"
+    },
+    {
+      "name": "Rename Layers by Content...",
+      "command": "reverse-rename"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Open Plugin",
+      "command": "open-plugin"
+    }
+  ],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://proxy.uixray.tech",
+      "https://api.openai.com",
+      "https://*.openai.azure.com"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:1234"
+    ],
+    "reasoning": "Required for communication with LLM providers via proxy (Yandex Cloud) and direct APIs (OpenAI-compatible)"
+  },
+  "permissions": [],
+  "documentAccess": "dynamic-page"
+}
