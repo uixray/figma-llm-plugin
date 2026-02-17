@@ -103,7 +103,6 @@
       <!-- Settings Tabs -->
       <div class="settings-tabs">
         <button class="settings-tab active" data-tab="groups" data-i18n="settings.tab.groups">Provider Groups</button>
-        <button class="settings-tab" data-tab="legacy" data-i18n="settings.tab.legacy">Legacy Providers</button>
         <button class="settings-tab" data-tab="general" data-i18n="settings.tab.general">General</button>
       </div>
 
@@ -121,25 +120,6 @@
           <div id="groups-list" class="groups-list">
             <div class="groups-empty">
               <p data-i18n="settings.groups.empty">No groups yet. Create your first group!</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Legacy Tab (V2.0) -->
-      <div id="settings-tab-legacy" class="settings-tab-content">
-        <div class="section">
-          <div class="settings-header">
-            <h3 data-i18n="settings.providers.title">AI Providers</h3>
-            <button id="add-provider-btn" class="btn-primary" data-i18n="settings.addProvider">+ Add Provider</button>
-          </div>
-          <p class="hint" data-i18n="settings.providers.hint">Configure multiple AI providers and switch between them easily</p>
-        </div>
-
-        <div class="section">
-          <div id="providers-list" class="providers-list">
-            <div class="providers-empty">
-              <p>Loading providers...</p>
             </div>
           </div>
         </div>
@@ -400,15 +380,27 @@
     </div>
 
     <div id="help-panel" class="panel">
-      <div class="help-language-section">
-        <label data-i18n="language.label">Language:</label>
-        <select id="help-language-select">
-          <option value="en">🇬🇧 English</option>
-          <option value="ru">🇷🇺 Русский</option>
-          <option value="ja">🇯🇵 日本語</option>
-          <option value="zh">🇨🇳 中文</option>
-          <option value="fr">🇫🇷 Français</option>
-        </select>
+      <div class="help-preferences-section">
+        <div class="help-preference-row">
+          <div class="help-preference-item">
+            <label data-i18n="language.label">Language:</label>
+            <select id="help-language-select">
+              <option value="en">🇬🇧 English</option>
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="zh">🇨🇳 中文</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
+          </div>
+          <div class="help-preference-item">
+            <label data-i18n="settings.general.theme">Theme:</label>
+            <select id="help-theme-select">
+              <option value="auto" data-i18n="settings.theme.auto">Auto</option>
+              <option value="light" data-i18n="settings.theme.light">Light</option>
+              <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="help-section">
@@ -535,6 +527,13 @@
           <div class="form-group" id="group-folderid-group" style="display: none;">
             <label data-i18n="settings.group.folderId">Folder ID (Yandex):</label>
             <input type="text" id="group-folderid-input" placeholder="b1g..." data-i18n-placeholder="settings.group.folderIdPlaceholder">
+          </div>
+
+          <!-- Custom URL (LM Studio only) -->
+          <div class="form-group" id="group-customurl-group" style="display: none;">
+            <label data-i18n="settings.group.customUrl">Local Server URL (LM Studio):</label>
+            <input type="text" id="group-customurl-input" placeholder="http://127.0.0.1:1234" data-i18n-placeholder="settings.group.customUrlPlaceholder">
+            <p class="hint" data-i18n="settings.group.customUrlHint">Required for LM Studio. Default: http://127.0.0.1:1234</p>
           </div>
 
           <!-- Model Selection -->

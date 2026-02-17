@@ -1,5 +1,8 @@
 import { sendToSandbox } from '../../shared/messages';
-import { t } from '../../shared/i18n';
+import { t, setLanguage, getLanguage } from '../../shared/i18n';
+import type { Language } from '../../shared/i18n';
+import { applyTheme, type Theme } from '../../shared/theme';
+import { i18n } from '../i18n-ui';
 
 /**
  * Help Panel - FAQ and instructions for users
@@ -13,6 +16,7 @@ export class HelpPanel {
     this.container = document.getElementById('help-panel') as HTMLElement;
     this.render();
     this.setupEventListeners();
+    this.loadPreferences();
   }
 
   private setupEventListeners(): void {
@@ -28,6 +32,83 @@ export class HelpPanel {
         }
       }
     });
+
+    // Language select
+    const helpLangSelect = document.getElementById('help-language-select') as HTMLSelectElement;
+    if (helpLangSelect) {
+      helpLangSelect.addEventListener('change', (e) => {
+        const lang = (e.target as HTMLSelectElement).value as Language;
+        this.handleLanguageChange(lang);
+      });
+    }
+
+    // Theme select
+    const helpThemeSelect = document.getElementById('help-theme-select') as HTMLSelectElement;
+    if (helpThemeSelect) {
+      helpThemeSelect.addEventListener('change', (e) => {
+        const theme = (e.target as HTMLSelectElement).value as Theme;
+        this.handleThemeChange(theme);
+      });
+    }
+  }
+
+  /**
+   * Load saved preferences
+   */
+  private loadPreferences(): void {
+    // Set language dropdown to current language
+    const helpLangSelect = document.getElementById('help-language-select') as HTMLSelectElement;
+    if (helpLangSelect) {
+      helpLangSelect.value = getLanguage();
+    }
+
+    // Set theme dropdown to current theme (read from DOM attribute)
+    const helpThemeSelect = document.getElementById('help-theme-select') as HTMLSelectElement;
+    const mainThemeSelect = document.getElementById('settings-theme-select') as HTMLSelectElement;
+    if (helpThemeSelect && mainThemeSelect) {
+      helpThemeSelect.value = mainThemeSelect.value || 'auto';
+    }
+  }
+
+  /**
+   * Handle language change
+   */
+  private handleLanguageChange(lang: Language): void {
+    setLanguage(lang);
+
+    // Update main language select as well
+    const mainLangSelect = document.getElementById('settings-language-select') as HTMLSelectElement;
+    if (mainLangSelect) {
+      mainLangSelect.value = lang;
+    }
+
+    // Trigger full UI update immediately
+    i18n.updateAll();
+
+    // Save to settings
+    sendToSandbox({
+      type: 'update-language',
+      language: lang,
+    });
+  }
+
+  /**
+   * Handle theme change
+   */
+  private handleThemeChange(theme: Theme): void {
+    applyTheme(theme);
+
+    // Update main theme select as well
+    const mainThemeSelect = document.getElementById('settings-theme-select') as HTMLSelectElement;
+    if (mainThemeSelect) {
+      mainThemeSelect.value = theme;
+    }
+
+    // Save to settings
+    sendToSandbox({
+      type: 'update-theme',
+      theme: theme,
+    });
   }
 
   private toggleAccordion(sectionId: string): void {
@@ -39,10 +120,10 @@ export class HelpPanel {
 
     if (content && icon) {
       if (!isOpen) {
-        content.classList.add('open');
+        content.classList.add('active');
         icon.textContent = '▼';
       } else {
-        content.classList.remove('open');
+        content.classList.remove('active');
         icon.textContent = '▶';
       }
     }

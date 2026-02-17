@@ -3,6 +3,7 @@ import { StorageManager } from './storage-manager';
 import { estimateTokens } from '../shared/utils';
 import { SimpleAbortSignal } from '../shared/abort-helper';
 import { PROVIDER_CONFIGS } from '../shared/providers';
+import { getAllProviderConfigs } from '../shared/provider-converter';
 
 /**
  * Запрос на генерацию текста (V2)
@@ -37,8 +38,14 @@ export class ApiClient {
     const settings = await this.storageManager.loadSettings();
     console.log('[ApiClient] Settings loaded');
 
-    // V2: Ищем конфигурацию по ID
-    const userConfig = settings.providerConfigs.find(c => c.id === request.providerId);
+    // V2.1: Объединяем Legacy провайдеры и Provider Groups
+    const legacyConfigs = settings.providerConfigs || [];
+    const groups = settings.providerGroups || [];
+    const allConfigs = getAllProviderConfigs(legacyConfigs, groups);
+    console.log('[ApiClient] Total available configs (Legacy + Groups):', allConfigs.length);
+
+    // Ищем конфигурацию по ID
+    const userConfig = allConfigs.find(c => c.id === request.providerId);
     console.log('[ApiClient] User config:', JSON.stringify(userConfig, null, 2));
 
     if (!userConfig || !userConfig.enabled) {
@@ -62,26 +69,37 @@ export class ApiClient {
     // V2: Используем старую логику для совместимости (TODO: переписать на Provider классы)
     // Определяем тип провайдера по provider field
     if (providerConfig.provider === 'lmstudio') {
+      // LM Studio ТРЕБУЕТ customUrl (адрес локального сервера)
+      if (!userConfig.customUrl) {
+        throw new Error(
+          'LM Studio requires Custom URL. Please edit the provider in Settings and specify your local server address (default: http://127.0.0.1:1234).'
+        );
+      }
+
       const legacyConfig: LMStudioConfig = {
         enabled: userConfig.enabled,
-        apiKey: userConfig.apiKey,
-        apiUrl: userConfig.customUrl || providerConfig.apiUrl,
+        apiKey: userConfig.apiKey || 'not-required', // LM Studio не требует API ключ
+        apiUrl: userConfig.customUrl,
       };
       return this.generateWithLMStudio(request, legacyConfig);
     } else if (providerConfig.provider === 'yandex') {
-      // Для Yandex пользователь должен указать полный modelUri в customUrl
-      // Формат: gpt://<folderId>/<model> (например gpt://b1g.../yandexgpt-lite/latest)
-      if (!userConfig.customUrl || userConfig.customUrl.includes('YOUR_FOLDER_ID')) {
+      // Для Yandex проверяем наличие folderId
+      if (!userConfig.folderId || userConfig.folderId.includes('YOUR_FOLDER_ID')) {
         throw new Error(
-          'Yandex provider requires Model URI. Please edit the provider in Settings and specify Model URI in format: gpt://<folderId>/<model>'
+          'Yandex provider requires Folder ID. Please edit the provider in Settings and specify your Yandex Cloud Folder ID (found at cloud.yandex.ru/console)'
         );
       }
+
+      // Строим modelUri из folderId и model
+      // Формат: gpt://<folderId>/<model>
+      const modelUri = `gpt://${userConfig.folderId}/${providerConfig.model}`;
+      console.log('[ApiClient] Yandex modelUri:', modelUri);
 
       const legacyConfig: YandexConfig = {
         enabled: userConfig.enabled,
         apiKey: userConfig.apiKey,
-        folderId: '', // Не используется, modelUri передается напрямую
-        model: userConfig.customUrl, // Полный URI вместо модели
+        folderId: userConfig.folderId,
+        model: modelUri,
       };
       return this.generateWithYandex(request, legacyConfig);
     } else if (['openai', 'claude', 'gemini', 'mistral', 'groq', 'cohere'].includes(providerConfig.provider)) {
@@ -262,7 +280,25 @@ export class ApiClient {
     response: Response,
     onChunk: (chunk: string, tokens: number) => void
   ): Promise<void> {
-    const data = await response.json();
+    const contentType = response.headers.get('Content-Type') || '';
+
+    // Проверяем Content-Type перед парсингом JSON
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('[ApiClient] Yandex unexpected Content-Type:', contentType);
+      console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
+      throw new Error(`Expected JSON response but received ${contentType}. Check Yandex API key and folder ID.`);
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const text = await response.text();
+      console.error('[ApiClient] Yandex JSON parse error:', e);
+      console.error('[ApiClient] Response text:', text.substring(0, 200));
+      throw new Error(`Failed to parse Yandex JSON response: ${e.message}`);
+    }
 
     console.log('[ApiClient] Yandex response data:', JSON.stringify(data, null, 2));
 
@@ -325,7 +361,30 @@ export class ApiClient {
     request.signal.throwIfAborted();
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      const contentType = response.headers.get('Content-Type') || '';
+      let errorMessage = `OpenAI API error: ${response.status} ${response.statusText}`;
+
+      try {
+        const errorText = await response.text();
+        console.error('[ApiClient] OpenAI error response:', errorText);
+
+        // Проверяем, является ли ответ JSON
+        if (contentType.includes('application/json')) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage += `: ${errorJson.error?.message || errorText}`;
+          } catch {
+            errorMessage += `: ${errorText}`;
+          }
+        } else {
+          // HTML или другой формат - показываем краткое сообщение
+          errorMessage += ' (received non-JSON response - check API URL and key)';
+        }
+      } catch {
+        // Игнорируем ошибку чтения body
+      }
+
+      throw new Error(errorMessage);
     }
 
     // ВАЖНО: Figma's fetch НЕ поддерживает response.body (ReadableStream)
@@ -400,10 +459,30 @@ export class ApiClient {
     response: Response,
     onChunk: (chunk: string, tokens: number) => void
   ): Promise<void> {
-    const data = await response.json();
+    const contentType = response.headers.get('Content-Type') || '';
+
+    // Проверяем Content-Type перед парсингом JSON
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('[ApiClient] Unexpected Content-Type:', contentType);
+      console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
+      throw new Error(`Expected JSON response but received ${contentType}. Check API URL and key. Response starts with: ${text.substring(0, 100)}`);
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const text = await response.text();
+      console.error('[ApiClient] JSON parse error:', e);
+      console.error('[ApiClient] Response text:', text.substring(0, 200));
+      throw new Error(`Failed to parse JSON response: ${e.message}. Response: ${text.substring(0, 100)}`);
+    }
+
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
+      console.error('[ApiClient] Empty content in response:', JSON.stringify(data, null, 2));
       throw new Error('Empty response from API');
     }
 

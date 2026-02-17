@@ -141,7 +141,7 @@
 
 .badge-active {
   background: var(--figma-color-bg-brand);
-  color: white;
+  color: var(--figma-color-text-onbrand);
 }
 
 .badge-disabled {
@@ -458,6 +458,8 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(2px);
+  z-index: 1;
+  pointer-events: none; /* Allow clicks to pass through to modal-content */
 }
 
 .modal-content {
@@ -467,10 +469,11 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   width: 90%;
   max-width: 500px;
-  max-height: 80vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  z-index: 1;
+  overflow: hidden;
+  z-index: 2;
 }
 
 .modal-header {

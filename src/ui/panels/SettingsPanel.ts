@@ -1,7 +1,6 @@
 import { sendToSandbox } from '../../shared/messages';
-import { PluginSettings, UserProviderConfig, ProviderGroup, ModelConfig } from '../../shared/types';
-import { PROVIDER_CONFIGS, ProviderConfig } from '../../shared/providers';
-import { validateApiKey, validateConfigName, validatePricing, validateUrl } from '../../shared/validation';
+import { PluginSettings, ProviderGroup, ModelConfig } from '../../shared/types';
+import { PROVIDER_CONFIGS } from '../../shared/providers';
 import { generateUniqueId } from '../../shared/utils';
 import {
   getActiveModels,
@@ -40,11 +39,6 @@ export class SettingsPanel {
     // Кнопка "Add Group" (V2.1)
     document.getElementById('add-group-btn')?.addEventListener('click', () => {
       this.showGroupEditor(null);
-    });
-
-    // Кнопка "Add Provider" (Legacy)
-    document.getElementById('add-provider-btn')?.addEventListener('click', () => {
-      this.showProviderSelector();
     });
 
     // Кнопка "Save Settings"
@@ -128,7 +122,6 @@ export class SettingsPanel {
   loadSettings(settings: PluginSettings): void {
     this.settings = settings;
     this.renderGroupsList(); // V2.1: Render provider groups
-    this.renderProvidersList(); // Legacy: Render provider configs
     this.renderGenerationSettings();
 
     // Apply saved theme
@@ -294,629 +287,10 @@ export class SettingsPanel {
     return card;
   }
 
-  /**
-   * Отрисовка списка провайдеров (Legacy V2.0)
-   */
-  private renderProvidersList(): void {
-    if (!this.settings) return;
-
-    const container = document.getElementById('providers-list');
-    if (!container) return;
-
-    // Очищаем
-    container.innerHTML = '';
-
-    if (this.settings.providerConfigs.length === 0) {
-      container.innerHTML = `
-        <div class="providers-empty">
-          <p>No providers configured yet.</p>
-          <p class="hint">Click "Add Provider" to get started.</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Создаём карточки провайдеров
-    this.settings.providerConfigs.forEach((config) => {
-      const baseConfig = PROVIDER_CONFIGS.find((p) => p.id === config.baseConfigId);
-      if (!baseConfig) return;
-
-      const card = this.createProviderCard(config, baseConfig);
-      container.appendChild(card);
-    });
-  }
-
-  /**
-   * Создать карточку провайдера
-   */
-  private createProviderCard(
-    userConfig: UserProviderConfig,
-    baseConfig: ProviderConfig
-  ): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'provider-card';
-    card.dataset.configId = userConfig.id;
-
-    if (userConfig.id === this.settings?.activeProviderId) {
-      card.classList.add('active');
-    }
-
-    if (!userConfig.enabled) {
-      card.classList.add('disabled');
-    }
-
-    // Иконка провайдера (emoji или буква)
-    const providerIcon = this.getProviderIcon(baseConfig.provider);
-
-    // Ценообразование
-    const pricing = userConfig.customPricing || baseConfig.pricing;
-    const pricingText = `$${pricing.input.toFixed(2)}/$${pricing.output.toFixed(2)} per 1M tokens`;
-
-    card.innerHTML = `
-      <div class="provider-card-header">
-        <div class="provider-card-icon">${providerIcon}</div>
-        <div class="provider-card-info">
-          <div class="provider-card-name">${this.escapeHtml(userConfig.name)}</div>
-          <div class="provider-card-model">${baseConfig.name}</div>
-        </div>
-        <div class="provider-card-status">
-          ${userConfig.id === this.settings?.activeProviderId ? '<span class="badge-active">Active</span>' : ''}
-          ${!userConfig.enabled ? '<span class="badge-disabled">Disabled</span>' : ''}
-        </div>
-      </div>
-
-      <div class="provider-card-details">
-        <div class="provider-card-description">${baseConfig.description}</div>
-        <div class="provider-card-pricing">${pricingText}</div>
-        ${baseConfig.requiresProxy ? '<div class="provider-card-notice">⚠️ Requires CORS proxy</div>' : ''}
-      </div>
-
-      <div class="provider-card-actions">
-        <button class="btn-secondary btn-small" data-action="set-active" ${userConfig.id === this.settings?.activeProviderId ? 'disabled' : ''}>
-          Set Active
-        </button>
-        <button class="btn-secondary btn-small" data-action="toggle-enabled">
-          ${userConfig.enabled ? 'Disable' : 'Enable'}
-        </button>
-        <button class="btn-secondary btn-small" data-action="edit">Edit</button>
-        <button class="btn-secondary btn-small btn-danger" data-action="delete">Delete</button>
-      </div>
-    `;
-
-    // Обработчики кнопок
-    card.querySelector('[data-action="set-active"]')?.addEventListener('click', () => {
-      this.setActiveProvider(userConfig.id);
-    });
-
-    card.querySelector('[data-action="toggle-enabled"]')?.addEventListener('click', () => {
-      this.toggleProviderEnabled(userConfig.id);
-    });
-
-    card.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
-      this.editProviderConfig(userConfig.id);
-    });
-
-    card.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
-      this.deleteProviderConfig(userConfig.id);
-    });
-
-    return card;
-  }
-
-  /**
-   * Получить иконку провайдера
-   */
-  private getProviderIcon(provider: string): string {
-    const icons: Record<string, string> = {
-      openai: '🤖',
-      yandex: '🇷🇺',
-      claude: '🔮',
-      gemini: '♊',
-      mistral: '🌬️',
-      groq: '⚡',
-      cohere: '🧠',
-      lmstudio: '💻',
-    };
-
-    return icons[provider] || provider.charAt(0).toUpperCase();
-  }
-
-  /**
-   * Показать селектор провайдеров (показывает только типы провайдеров, не модели)
-   */
-  private showProviderSelector(): void {
-    // Уникальные типы провайдеров с их описаниями
-    const providerTypes: { provider: string; label: string; description: string; icon: string }[] = [
-      { provider: 'lmstudio', label: 'LM Studio (Local)', description: 'Run models locally. Free, private, offline.', icon: '💻' },
-      { provider: 'openai', label: 'OpenAI', description: 'GPT-4o and GPT-4o Mini. Industry standard.', icon: '🤖' },
-      { provider: 'claude', label: 'Anthropic Claude', description: 'Claude models. Excellent for creative writing.', icon: '🔮' },
-      { provider: 'gemini', label: 'Google Gemini', description: 'Gemini models. Free tier available!', icon: '♊' },
-      { provider: 'groq', label: 'Groq', description: 'Ultra-fast inference. 800+ tokens/sec.', icon: '⚡' },
-      { provider: 'mistral', label: 'Mistral AI', description: 'European models. EU data residency.', icon: '🌬️' },
-      { provider: 'cohere', label: 'Cohere', description: 'Business-focused models. Enterprise content.', icon: '🧠' },
-      { provider: 'yandex', label: 'Yandex Cloud', description: 'YandexGPT models. Best for Russian language.', icon: '🇷🇺' },
-    ];
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content provider-selector">
-        <div class="modal-header">
-          <h3>Add Provider</h3>
-          <button class="modal-close" data-action="close">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="provider-type-grid">
-            ${providerTypes.map(pt => `
-              <div class="provider-type-option" data-provider="${pt.provider}">
-                <div class="provider-type-icon">${pt.icon}</div>
-                <div class="provider-type-info">
-                  <div class="provider-type-name">${pt.label}</div>
-                  <div class="provider-type-description">${pt.description}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Закрытие модального окна
-    modal.querySelector('[data-action="close"]')?.addEventListener('click', () => {
-      modal.remove();
-    });
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.remove();
-    });
-
-    // Выбор типа провайдера → открываем конфигурацию с выбором модели
-    modal.querySelectorAll('.provider-type-option').forEach((option) => {
-      option.addEventListener('click', () => {
-        const providerType = (option as HTMLElement).dataset.provider;
-        if (providerType) {
-          const modelsForProvider = PROVIDER_CONFIGS.filter(c => c.provider === providerType);
-          if (modelsForProvider.length > 0) {
-            // Берём первую (дефолтную) модель для начала
-            this.createProviderConfig(modelsForProvider[0].id);
-          }
-          modal.remove();
-        }
-      });
-    });
-
-    document.body.appendChild(modal);
-  }
-
-  /**
-   * Создать новую конфигурацию провайдера
-   */
-  private createProviderConfig(baseConfigId: string): void {
-    const baseConfig = PROVIDER_CONFIGS.find((p) => p.id === baseConfigId);
-    if (!baseConfig) return;
-
-    // Показываем форму редактирования
-    this.showConfigEditor(null, baseConfig);
-  }
-
-  /**
-   * Показать редактор конфигурации (с выбором модели внутри провайдера)
-   */
-  private showConfigEditor(userConfig: UserProviderConfig | null, baseConfig: ProviderConfig): void {
-    const isNew = !userConfig;
-
-    // Все модели этого провайдера
-    const modelsForProvider = PROVIDER_CONFIGS.filter(c => c.provider === baseConfig.provider);
-    const providerLabel = this.getProviderLabel(baseConfig.provider);
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content config-editor">
-        <div class="modal-header">
-          <h3>${isNew ? 'Add' : 'Edit'} ${providerLabel}</h3>
-          <button class="modal-close" data-action="close">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Configuration Name *</label>
-            <input type="text" id="config-name" value="${userConfig?.name || providerLabel}" placeholder="e.g., My ${providerLabel} Production">
-            <div class="hint">Give this configuration a descriptive name</div>
-          </div>
-
-          ${modelsForProvider.length > 1 ? `
-          <div class="form-group">
-            <label>Model *</label>
-            <select id="config-model-select">
-              ${modelsForProvider.map(m => `
-                <option value="${m.id}" ${m.id === baseConfig.id ? 'selected' : ''}>
-                  ${m.name} — $${m.pricing.input.toFixed(2)}/$${m.pricing.output.toFixed(2)} per 1M
-                </option>
-              `).join('')}
-            </select>
-            <div class="hint model-description-hint">${baseConfig.description}</div>
-          </div>
-          ` : ''}
-
-          <div class="form-group">
-            <label>API Key ${baseConfig.provider === 'lmstudio' ? '' : '*'}</label>
-            <input type="password" id="config-api-key" value="${userConfig?.apiKey || ''}" placeholder="${baseConfig.provider === 'lmstudio' ? 'Not required for LM Studio' : 'Enter your API key'}">
-            <div class="hint" id="api-key-hint"></div>
-          </div>
-
-          ${
-            baseConfig.provider === 'yandex'
-              ? `
-          <div class="form-group">
-            <label>Yandex Cloud Folder ID *</label>
-            <input type="text" id="config-folder-id" value="${userConfig?.folderId || ''}" placeholder="e.g., b1g...">
-            <div class="hint">Your Yandex Cloud folder ID (from cloud.yandex.ru/console)</div>
-          </div>
-          `
-              : baseConfig.provider === 'lmstudio'
-                ? `
-          <div class="form-group">
-            <label>Local Server URL *</label>
-            <input type="text" id="config-custom-url" value="${userConfig?.customUrl || 'http://127.0.0.1:1234'}" placeholder="http://127.0.0.1:1234">
-            <div class="hint">Your LM Studio local server address (default: http://127.0.0.1:1234)</div>
-          </div>
-          <div class="form-group">
-            <label>Model Name *</label>
-            <input type="text" id="config-model-name" value="${userConfig?.modelName || ''}" placeholder="e.g., llama-3.2-3b-instruct">
-            <div class="hint">The model currently loaded in LM Studio (find in LM Studio UI)</div>
-          </div>
-          `
-                : baseConfig.apiUrl.includes('{{')
-                  ? `
-          <div class="form-group">
-            <label>Custom URL (optional)</label>
-            <input type="text" id="config-custom-url" value="${userConfig?.customUrl || ''}" placeholder="${baseConfig.apiUrl}">
-            <div class="hint">Leave empty to use default: ${baseConfig.apiUrl}</div>
-          </div>
-          `
-                  : ''
-          }
-
-          <div class="form-group">
-            <label>Custom Pricing (optional)</label>
-            <div class="pricing-inputs">
-              <div>
-                <input type="number" id="config-price-input" value="${userConfig?.customPricing?.input || baseConfig.pricing.input}" step="0.01" min="0">
-                <span class="hint">Input $/1M tokens</span>
-              </div>
-              <div>
-                <input type="number" id="config-price-output" value="${userConfig?.customPricing?.output || baseConfig.pricing.output}" step="0.01" min="0">
-                <span class="hint">Output $/1M tokens</span>
-              </div>
-            </div>
-            <div class="hint">Override pricing for corporate contracts</div>
-          </div>
-
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="config-enabled" ${userConfig?.enabled !== false ? 'checked' : ''}>
-              Enable this configuration
-            </label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" data-action="cancel">Cancel</button>
-          <button class="btn-primary" data-action="save">Save</button>
-        </div>
-      </div>
-    `;
-
-    // Закрытие
-    modal.querySelector('[data-action="close"]')?.addEventListener('click', () => modal.remove());
-    modal.querySelector('[data-action="cancel"]')?.addEventListener('click', () => modal.remove());
-
-    // Обработчик смены модели в dropdown
-    const modelSelect = modal.querySelector('#config-model-select') as HTMLSelectElement;
-    if (modelSelect) {
-      modelSelect.addEventListener('change', () => {
-        const selectedModelId = modelSelect.value;
-        const selectedModel = PROVIDER_CONFIGS.find(c => c.id === selectedModelId);
-        if (!selectedModel) return;
-
-        // Обновляем описание модели
-        const descHint = modal.querySelector('.model-description-hint');
-        if (descHint) descHint.textContent = selectedModel.description;
-
-        // Обновляем pricing
-        const priceInput = modal.querySelector('#config-price-input') as HTMLInputElement;
-        const priceOutput = modal.querySelector('#config-price-output') as HTMLInputElement;
-        if (priceInput) priceInput.value = String(selectedModel.pricing.input);
-        if (priceOutput) priceOutput.value = String(selectedModel.pricing.output);
-
-        // Для Yandex: обновляем Model URI
-        if (selectedModel.provider === 'yandex') {
-          const folderIdInput = modal.querySelector('#config-folder-id') as HTMLInputElement;
-          const customUrlInput = modal.querySelector('#config-custom-url') as HTMLInputElement;
-          const modelUriHint = modal.querySelector('#model-uri-hint');
-          if (modelUriHint) modelUriHint.innerHTML = `Model: <strong>${selectedModel.model}</strong> — URI will be generated from Folder ID above`;
-          if (folderIdInput?.value.trim() && customUrlInput) {
-            customUrlInput.value = `gpt://${folderIdInput.value.trim()}/${selectedModel.model}`;
-          }
-        }
-      });
-    }
-
-    // Сохранение — используем актуально выбранную модель
-    modal.querySelector('[data-action="save"]')?.addEventListener('click', () => {
-      const selectedModelId = modelSelect?.value || baseConfig.id;
-      const actualBaseConfig = PROVIDER_CONFIGS.find(c => c.id === selectedModelId) || baseConfig;
-      this.saveProviderConfig(modal, userConfig, actualBaseConfig);
-    });
-
-    document.body.appendChild(modal);
-
-    // Для Yandex: авто-формирование Model URI из Folder ID
-    if (baseConfig.provider === 'yandex') {
-      const folderIdInput = modal.querySelector('#config-folder-id') as HTMLInputElement;
-      const customUrlInput = modal.querySelector('#config-custom-url') as HTMLInputElement;
-
-      const updateModelUri = () => {
-        const folderId = folderIdInput?.value.trim();
-        const currentModelId = modelSelect?.value || baseConfig.id;
-        const currentModel = PROVIDER_CONFIGS.find(c => c.id === currentModelId) || baseConfig;
-        if (folderId && customUrlInput) {
-          customUrlInput.value = `gpt://${folderId}/${currentModel.model}`;
-        } else if (customUrlInput) {
-          customUrlInput.value = '';
-        }
-      };
-
-      folderIdInput?.addEventListener('input', updateModelUri);
-
-      if (folderIdInput?.value.trim()) {
-        updateModelUri();
-      }
-    }
-  }
-
-  /**
-   * Получить человекочитаемое название провайдера
-   */
-  private getProviderLabel(provider: string): string {
-    const labels: Record<string, string> = {
-      openai: 'OpenAI',
-      yandex: 'Yandex Cloud',
-      claude: 'Anthropic Claude',
-      gemini: 'Google Gemini',
-      mistral: 'Mistral AI',
-      groq: 'Groq',
-      cohere: 'Cohere',
-      lmstudio: 'LM Studio',
-    };
-    return labels[provider] || provider;
-  }
-
-  /**
-   * Сохранить конфигурацию провайдера
-   */
-  private saveProviderConfig(
-    modal: HTMLElement,
-    existingConfig: UserProviderConfig | null,
-    baseConfig: ProviderConfig
-  ): void {
-    const name = (modal.querySelector('#config-name') as HTMLInputElement)?.value.trim();
-    const apiKey = (modal.querySelector('#config-api-key') as HTMLInputElement)?.value.trim();
-    const customUrl = (modal.querySelector('#config-custom-url') as HTMLInputElement)?.value.trim();
-    const priceInput = parseFloat(
-      (modal.querySelector('#config-price-input') as HTMLInputElement)?.value
-    );
-    const priceOutput = parseFloat(
-      (modal.querySelector('#config-price-output') as HTMLInputElement)?.value
-    );
-    const enabled = (modal.querySelector('#config-enabled') as HTMLInputElement)?.checked;
-
-    // Валидация
-    const nameValidation = validateConfigName(name);
-    if (!nameValidation.valid) {
-      this.showError(nameValidation.error!);
-      return;
-    }
-
-    if (baseConfig.provider !== 'lmstudio') {
-      const apiKeyValidation = validateApiKey(apiKey, baseConfig.provider);
-      if (!apiKeyValidation.valid) {
-        this.showError(apiKeyValidation.error!);
-        return;
-      }
-    }
-
-    // Для Yandex: проверяем Folder ID
-    const folderId = baseConfig.provider === 'yandex'
-      ? (modal.querySelector('#config-folder-id') as HTMLInputElement)?.value.trim()
-      : undefined;
-
-    if (baseConfig.provider === 'yandex' && !folderId) {
-      this.showError('Yandex Cloud Folder ID is required');
-      return;
-    }
-
-    // Для LM Studio: проверяем Custom URL и Model Name
-    if (baseConfig.provider === 'lmstudio') {
-      const modelName = (modal.querySelector('#config-model-name') as HTMLInputElement)?.value.trim();
-
-      if (!customUrl) {
-        this.showError('LM Studio requires Local Server URL');
-        return;
-      }
-
-      if (!modelName) {
-        this.showError('LM Studio requires Model Name');
-        return;
-      }
-
-      const urlValidation = validateUrl(customUrl);
-      if (!urlValidation.valid) {
-        this.showError(urlValidation.error!);
-        return;
-      }
-    }
-
-    if (customUrl && baseConfig.provider !== 'yandex' && baseConfig.provider !== 'lmstudio') {
-      const urlValidation = validateUrl(customUrl);
-      if (!urlValidation.valid) {
-        this.showError(urlValidation.error!);
-        return;
-      }
-    }
-
-    const pricingValidation = validatePricing(priceInput, priceOutput);
-    if (!pricingValidation.valid) {
-      this.showError(pricingValidation.error!);
-      return;
-    }
-
-    // Создаём/обновляем конфигурацию
-    const newConfig: UserProviderConfig = {
-      id: existingConfig?.id || generateUniqueId(),
-      baseConfigId: baseConfig.id,
-      name,
-      apiKey: baseConfig.provider === 'lmstudio' ? 'not-required' : apiKey, // Dummy value for LM Studio
-      customUrl: customUrl || undefined,
-      folderId: folderId || undefined,
-      modelName: baseConfig.provider === 'lmstudio'
-        ? (modal.querySelector('#config-model-name') as HTMLInputElement)?.value.trim()
-        : undefined,
-      customPricing:
-        priceInput !== baseConfig.pricing.input || priceOutput !== baseConfig.pricing.output
-          ? { input: priceInput, output: priceOutput }
-          : undefined,
-      enabled: enabled !== false,
-      createdAt: existingConfig?.createdAt || Date.now(),
-      lastUsed: existingConfig?.lastUsed,
-    };
-
-    if (!this.settings) return;
-
-    if (existingConfig) {
-      // Обновляем существующую
-      const index = this.settings.providerConfigs.findIndex((c) => c.id === existingConfig.id);
-      if (index >= 0) {
-        this.settings.providerConfigs[index] = newConfig;
-      }
-    } else {
-      // Добавляем новую
-      this.settings.providerConfigs.push(newConfig);
-
-      // Если это первая конфигурация - делаем активной
-      if (this.settings.providerConfigs.length === 1) {
-        this.settings.activeProviderId = newConfig.id;
-      }
-    }
-
-    // Сохраняем настройки в clientStorage
-    sendToSandbox({
-      type: 'save-settings',
-      id: generateUniqueId(),
-      settings: this.settings,
-    });
-
-    // Уведомляем GeneratePanel об изменении списка провайдеров
-    sendToSandbox({
-      type: 'settings-updated',
-      id: generateUniqueId(),
-      settings: this.settings,
-    });
-
-    this.renderProvidersList();
-    modal.remove();
-
-    this.showSuccess(existingConfig ? 'Configuration updated' : 'Configuration added');
-  }
-
-  /**
-   * Установить активного провайдера
-   */
-  private setActiveProvider(configId: string): void {
-    if (!this.settings) return;
-    this.settings.activeProviderId = configId;
-    this.renderProvidersList();
-  }
-
-  /**
-   * Переключить enabled статус
-   */
-  private toggleProviderEnabled(configId: string): void {
-    if (!this.settings) return;
-
-    const config = this.settings.providerConfigs.find((c) => c.id === configId);
-    if (config) {
-      config.enabled = !config.enabled;
-
-      // Сохраняем и уведомляем об изменениях
-      sendToSandbox({
-        type: 'save-settings',
-        id: generateUniqueId(),
-        settings: this.settings,
-      });
-
-      sendToSandbox({
-        type: 'settings-updated',
-        id: generateUniqueId(),
-        settings: this.settings,
-      });
-
-      this.renderProvidersList();
-    }
-  }
-
-  /**
-   * Редактировать конфигурацию
-   */
-  private editProviderConfig(configId: string): void {
-    if (!this.settings) return;
-
-    const config = this.settings.providerConfigs.find((c) => c.id === configId);
-    if (!config) return;
-
-    const baseConfig = PROVIDER_CONFIGS.find((p) => p.id === config.baseConfigId);
-    if (!baseConfig) return;
-
-    this.showConfigEditor(config, baseConfig);
-  }
-
-  /**
-   * Удалить конфигурацию
-   */
-  private deleteProviderConfig(configId: string): void {
-    if (!this.settings) return;
-
-    const config = this.settings.providerConfigs.find((c) => c.id === configId);
-    if (!config) return;
-
-    const confirmed = confirm(`Delete "${config.name}"?`);
-    if (!confirmed) return;
-
-    this.settings.providerConfigs = this.settings.providerConfigs.filter(
-      (c) => c.id !== configId
-    );
-
-    // Если удалили активного - выбираем первого доступного
-    if (this.settings.activeProviderId === configId) {
-      this.settings.activeProviderId =
-        this.settings.providerConfigs.find((c) => c.enabled)?.id || '';
-    }
-
-    // Сохраняем и уведомляем об изменениях
-    sendToSandbox({
-      type: 'save-settings',
-      id: generateUniqueId(),
-      settings: this.settings,
-    });
-
-    sendToSandbox({
-      type: 'settings-updated',
-      id: generateUniqueId(),
-      settings: this.settings,
-    });
-
-    this.renderProvidersList();
-    this.showSuccess('Configuration deleted');
-  }
+  // ============================================================================
+  // Legacy Provider System REMOVED
+  // All providers now managed via Provider Groups V2.1
+  // ============================================================================
 
   /**
    * Отрисовка настроек генерации
@@ -1071,18 +445,31 @@ export class SettingsPanel {
     const providerSelect = document.getElementById('group-provider-select') as HTMLSelectElement;
     const apiKeyInput = document.getElementById('group-apikey-input') as HTMLInputElement;
     const folderIdInput = document.getElementById('group-folderid-input') as HTMLInputElement;
+    const customUrlInput = document.getElementById('group-customurl-input') as HTMLInputElement;
 
     if (group) {
       if (nameInput) nameInput.value = group.name;
       if (providerSelect) providerSelect.value = group.baseProviderId;
-      if (apiKeyInput) apiKeyInput.value = group.sharedApiKey;
+      // API key: show masked version initially, but allow editing (placeholder показывает что ключ задан)
+      if (apiKeyInput) {
+        apiKeyInput.value = '';
+        apiKeyInput.placeholder = `${group.sharedApiKey.slice(0, 4)}...${group.sharedApiKey.slice(-4)} (leave empty to keep current)`;
+        // Store original key as data attribute for later use
+        apiKeyInput.dataset.originalKey = group.sharedApiKey;
+      }
       if (folderIdInput) folderIdInput.value = group.folderId || '';
+      if (customUrlInput) customUrlInput.value = group.customUrl || '';
       this.loadModelsForProvider(group.baseProviderId, group.modelConfigs);
     } else {
       if (nameInput) nameInput.value = '';
       if (providerSelect) providerSelect.value = '';
-      if (apiKeyInput) apiKeyInput.value = '';
+      if (apiKeyInput) {
+        apiKeyInput.value = '';
+        apiKeyInput.placeholder = 'sk-proj-...';
+        delete apiKeyInput.dataset.originalKey;
+      }
       if (folderIdInput) folderIdInput.value = '';
+      if (customUrlInput) customUrlInput.value = '';
       const modelsList = document.getElementById('group-models-list');
       if (modelsList) modelsList.innerHTML = '<p class="hint">Select a provider first</p>';
     }
@@ -1090,6 +477,10 @@ export class SettingsPanel {
     // Folder ID только для Yandex
     const folderIdGroup = document.getElementById('group-folderid-group');
     if (folderIdGroup) folderIdGroup.style.display = (providerSelect?.value === 'yandex') ? 'block' : 'none';
+
+    // Custom URL только для LM Studio
+    const customUrlGroup = document.getElementById('group-customurl-group');
+    if (customUrlGroup) customUrlGroup.style.display = (providerSelect?.value === 'lmstudio') ? 'block' : 'none';
 
     // Обработчик изменения провайдера
     const boundProviderChange = this.handleProviderChange.bind(this);
@@ -1120,7 +511,9 @@ export class SettingsPanel {
     const select = e.target as HTMLSelectElement;
     const provider = select.value;
     const folderIdGroup = document.getElementById('group-folderid-group');
+    const customUrlGroup = document.getElementById('group-customurl-group');
     if (folderIdGroup) folderIdGroup.style.display = (provider === 'yandex') ? 'block' : 'none';
+    if (customUrlGroup) customUrlGroup.style.display = (provider === 'lmstudio') ? 'block' : 'none';
     if (provider) this.loadModelsForProvider(provider, []);
   }
 
@@ -1173,15 +566,20 @@ export class SettingsPanel {
     const providerSelect = document.getElementById('group-provider-select') as HTMLSelectElement;
     const apiKeyInput = document.getElementById('group-apikey-input') as HTMLInputElement;
     const folderIdInput = document.getElementById('group-folderid-input') as HTMLInputElement;
+    const customUrlInput = document.getElementById('group-customurl-input') as HTMLInputElement;
 
     const name = nameInput?.value.trim();
     const provider = providerSelect?.value;
-    const apiKey = apiKeyInput?.value.trim();
+    // If editing and apiKey is empty, use original key
+    const apiKeyValue = apiKeyInput?.value.trim();
+    const apiKey = apiKeyValue || apiKeyInput?.dataset.originalKey || '';
     const folderId = folderIdInput?.value.trim();
+    const customUrl = customUrlInput?.value.trim();
 
     if (!name) { this.showError('Please enter a group name'); return; }
     if (!provider) { this.showError('Please select a provider'); return; }
     if (!apiKey && provider !== 'lmstudio') { this.showError('Please enter an API key'); return; }
+    if (!customUrl && provider === 'lmstudio') { this.showError('LM Studio requires Local Server URL'); return; }
 
     const checkboxes = document.querySelectorAll('#group-models-list input[type="checkbox"]:checked');
     const selectedModelIds = Array.from(checkboxes).map(cb => (cb as HTMLInputElement).value);
@@ -1198,6 +596,7 @@ export class SettingsPanel {
       existingGroup.name = name;
       existingGroup.sharedApiKey = apiKey;
       existingGroup.folderId = folderId || undefined;
+      existingGroup.customUrl = customUrl || undefined;
       existingGroup.modelConfigs = modelConfigs;
     } else {
       if (!this.settings) return;
@@ -1207,6 +606,7 @@ export class SettingsPanel {
         baseProviderId: provider,
         sharedApiKey: apiKey,
         folderId: folderId || undefined,
+        customUrl: customUrl || undefined,
         modelConfigs,
         enabled: true,
         createdAt: Date.now(),

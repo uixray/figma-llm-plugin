@@ -57,6 +57,7 @@ export interface ProviderGroup {
   baseProviderId: string; // ID базового провайдера: 'openai', 'claude', 'yandex', и т.д.
   sharedApiKey: string; // Общий API ключ для всех моделей в группе
   folderId?: string; // Folder ID для Yandex провайдеров (общий для группы)
+  customUrl?: string; // Custom URL для LM Studio (общий для группы), например http://127.0.0.1:1234
   sharedProxy?: {
     // Общий прокси для всех моделей (опционально)
     url: string;

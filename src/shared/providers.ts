@@ -53,7 +53,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
     description:
       'Most capable OpenAI model. Best for complex tasks, reasoning, and creativity.',
     model: 'gpt-4o',
-    apiUrl: 'https://proxy.uixray.tech/api/openai',
+    apiUrl: 'https://api.openai.com/v1',
     requiresProxy: false, // Already uses proxy URL
     pricing: { input: 2.5, output: 10 },
     limits: { maxTokens: 4096, rateLimit: '500 req/min' },
@@ -67,7 +67,7 @@ export const PROVIDER_CONFIGS: ProviderConfig[] = [
     description:
       'Affordable and fast. Excellent for bulk generation and simple tasks.',
     model: 'gpt-4o-mini',
-    apiUrl: 'https://proxy.uixray.tech/api/openai',
+    apiUrl: 'https://api.openai.com/v1',
     requiresProxy: false, // Already uses proxy URL
     pricing: { input: 0.15, output: 0.6 },
     limits: { maxTokens: 4096, rateLimit: '500 req/min' },

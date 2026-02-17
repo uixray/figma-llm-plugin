@@ -90,8 +90,8 @@ export class RenameHandler {
     try {
       console.log(`[RenameHandler] Applying renaming to ${preview.length} nodes`);
 
-      // Применяем переименование
-      const renamedCount = applyRenaming(preview);
+      // Применяем переименование (теперь async)
+      const renamedCount = await applyRenaming(preview);
 
       console.log(`[RenameHandler] Renamed ${renamedCount} nodes`);
 

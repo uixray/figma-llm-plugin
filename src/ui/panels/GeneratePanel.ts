@@ -4,6 +4,7 @@ import { generateUniqueId } from '../../shared/utils';
 import { t } from '../../shared/i18n';
 import { PROVIDER_CONFIGS } from '../../shared/providers';
 import { getActiveModels, findModelById } from '../../shared/provider-groups-utils';
+import { getAllProviderConfigs } from '../../shared/provider-converter';
 
 /**
  * Generate Panel - handles text generation UI and logic.
@@ -87,58 +88,32 @@ export class GeneratePanel {
 
     this.providerSelect.innerHTML = '';
 
-    // V2.1: Use provider groups if available
-    if (this.settings.providerGroups && this.settings.providerGroups.length > 0) {
-      const activeModels = getActiveModels(this.settings);
+    // V2.1: Combine Legacy providers and Provider Groups
+    const legacyConfigs = this.settings.providerConfigs || [];
+    const groups = this.settings.providerGroups || [];
+    const allConfigs = getAllProviderConfigs(legacyConfigs, groups);
+    const enabledConfigs = allConfigs.filter(c => c.enabled);
 
-      if (activeModels.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = t('generate.provider.noProvider');
-        this.providerSelect.appendChild(opt);
-        return;
-      }
+    if (enabledConfigs.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = t('generate.provider.noProvider');
+      this.providerSelect.appendChild(opt);
+      return;
+    }
 
-      activeModels.forEach(model => {
-        const baseConfig = PROVIDER_CONFIGS.find(p => p.id === model.baseConfigId);
-        const group = this.settings!.providerGroups!.find(g =>
-          g.modelConfigs.some(m => m.id === model.id)
-        );
+    enabledConfigs.forEach(config => {
+      const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
+      const opt = document.createElement('option');
+      opt.value = config.id;
+      opt.textContent = `${this.getProviderIcon(baseConfig?.provider || '')} ${config.name}`;
+      this.providerSelect.appendChild(opt);
+    });
 
-        const opt = document.createElement('option');
-        opt.value = model.id;
-        opt.textContent = `${this.getProviderIcon(baseConfig?.provider || '')} ${model.name}`;
-        this.providerSelect.appendChild(opt);
-      });
-
-      // Select the active model
-      if (this.settings.activeModelId) {
-        this.providerSelect.value = this.settings.activeModelId;
-      }
-    } else {
-      // V2.0: Fallback to old provider configs for backward compatibility
-      const enabledConfigs = this.settings.providerConfigs?.filter(c => c.enabled) || [];
-
-      if (enabledConfigs.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = t('generate.provider.noProvider');
-        this.providerSelect.appendChild(opt);
-        return;
-      }
-
-      enabledConfigs.forEach(config => {
-        const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
-        const opt = document.createElement('option');
-        opt.value = config.id;
-        opt.textContent = `${this.getProviderIcon(baseConfig?.provider || '')} ${config.name}${baseConfig ? ' — ' + baseConfig.name : ''}`;
-        this.providerSelect.appendChild(opt);
-      });
-
-      // Select the active provider
-      if (this.settings.activeProviderId) {
-        this.providerSelect.value = this.settings.activeProviderId;
-      }
+    // Select the active provider/model
+    const activeId = this.settings.activeModelId || this.settings.activeProviderId;
+    if (activeId) {
+      this.providerSelect.value = activeId;
     }
   }
 

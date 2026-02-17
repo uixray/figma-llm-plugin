@@ -154,22 +154,33 @@ export function generateRenamePreview(
 /**
  * Применить переименование к узлам на основе превью
  */
-export function applyRenaming(previews: RenamePreview[]): number {
+export async function applyRenaming(previews: RenamePreview[]): Promise<number> {
   let renamedCount = 0;
 
   for (const preview of previews) {
     try {
-      const node = figma.getNodeById(preview.nodeId);
+      // Use async version as required by Figma API in dynamic-page mode
+      const node = await figma.getNodeByIdAsync(preview.nodeId) as SceneNode;
 
       if (node && 'name' in node) {
+        // Check if node is locked
+        if ('locked' in node && node.locked) {
+          console.warn(`[RenameHelpers] Skipping locked node: ${preview.nodeId}`);
+          continue;
+        }
+
+        console.log(`[RenameHelpers] Renaming "${node.name}" -> "${preview.newName}"`);
         node.name = preview.newName;
         renamedCount++;
+      } else {
+        console.warn(`[RenameHelpers] Node not found or has no name property: ${preview.nodeId}`);
       }
     } catch (error) {
       console.error(`[RenameHelpers] Failed to rename node ${preview.nodeId}:`, error);
     }
   }
 
+  console.log(`[RenameHelpers] Successfully renamed ${renamedCount}/${previews.length} nodes`);
   return renamedCount;
 }
 

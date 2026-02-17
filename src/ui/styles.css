@@ -110,6 +110,8 @@ button {
   font-size: 12px;
   font-weight: 500;
   transition: all 0.2s;
+  color: var(--figma-color-text);
+  background: var(--figma-color-bg-secondary);
 }
 
 .btn-primary {
@@ -247,13 +249,7 @@ button {
   }
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  body {
-    color: #fff;
-    background: #2c2c2c;
-  }
-}
+/* Dark mode: handled by theme.css via data-theme attribute */
 
 /* Data Presets Styles */
 .preset-selector {
@@ -928,8 +924,8 @@ button {
 }
 
 .badge-active {
-  background: #18a0fb;
-  color: white;
+  background: var(--figma-color-bg-brand);
+  color: var(--figma-color-text-onbrand);
   padding: 2px 8px;
   border-radius: 3px;
   font-size: 10px;
@@ -963,7 +959,7 @@ button {
 
 .provider-card-notice {
   font-size: 10px;
-  color: #f24822;
+  color: var(--figma-color-bg-danger);
   margin-top: 4px;
 }
 
@@ -979,12 +975,12 @@ button {
 }
 
 .btn-danger {
-  color: #f24822;
+  color: var(--figma-color-bg-danger);
 }
 
 .btn-danger:hover {
-  background: #f24822;
-  color: white;
+  background: var(--figma-color-bg-danger);
+  color: var(--figma-color-text-onbrand);
 }
 
 /* Modal styles */
@@ -1561,7 +1557,7 @@ button {
 .language-btn.selected {
   border-color: var(--figma-color-bg-brand);
   background: var(--figma-color-bg-brand);
-  color: white;
+  color: var(--figma-color-text-onbrand);
 }
 
 .language-btn-flag {
@@ -1581,28 +1577,34 @@ button {
 }
 
 /* Help page language dropdown */
-.help-language-section {
+.help-preferences-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
+.help-preference-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--figma-color-bg-secondary);
-  border-radius: 6px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.help-language-section label {
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-
-.help-language-section select {
+.help-preference-item {
   flex: 1;
-  margin-bottom: 0;
-  padding: 6px 8px;
+  min-width: 150px;
+}
+
+.help-preference-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
   font-size: 12px;
+}
+
+.help-preference-item select {
+  width: 100%;
+  margin-bottom: 0;
+  padding: 8px;
 }
 
 /* ============================================================================
@@ -1620,12 +1622,20 @@ button {
 .accordion-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 12px 14px;
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
   background: var(--figma-color-bg);
+}
+
+.accordion-header h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--figma-color-text);
 }
 
 .accordion-header:hover {
@@ -1635,6 +1645,10 @@ button {
 .accordion-header.active {
   background: var(--figma-color-bg-brand);
   border-bottom: 1px solid var(--figma-color-border);
+}
+
+.accordion-header.active h3 {
+  color: var(--figma-color-text-onbrand);
 }
 
 .accordion-title {
@@ -1661,6 +1675,7 @@ button {
 
 .accordion-header.active .accordion-icon {
   transform: rotate(180deg);
+  color: var(--figma-color-text-onbrand);
 }
 
 .accordion-content {
@@ -1704,7 +1719,7 @@ button {
   width: 20px;
   height: 20px;
   background: var(--figma-color-bg-brand);
-  color: var(--figma-color-text);
+  color: var(--figma-color-text-onbrand);
   border-radius: 50%;
   display: flex;
   align-items: center;

@@ -1,27 +1,36 @@
 /**
  * Theme System - Light & Dark Mode
+ * Overrides Figma's built-in --figma-color-* variables
  */
 
 /* Light Theme (Default) */
 :root,
 :root[data-theme="light"] {
-  --theme-bg-primary: #ffffff;
-  --theme-bg-secondary: #f5f5f5;
-  --theme-bg-tertiary: #e8e8e8;
-  --theme-bg-hover: #f0f0f0;
-  --theme-bg-brand: #18a0fb;
-  --theme-bg-brand-hover: #0d8ce8;
-  --theme-bg-danger: #f24822;
+  --figma-color-bg: #ffffff;
+  --figma-color-bg-secondary: #f5f5f5;
+  --figma-color-bg-tertiary: #e8e8e8;
+  --figma-color-bg-hover: #f0f0f0;
+  --figma-color-bg-brand: #18a0fb;
+  --figma-color-bg-brand-hover: #0d8ce8;
+  --figma-color-bg-disabled: #e8e8e8;
+  --figma-color-bg-danger: #f24822;
+  --figma-color-bg-danger-hover: #d93a18;
+  --figma-color-bg-danger-secondary: rgba(242, 72, 34, 0.1);
+  --figma-color-bg-success: #4caf50;
+  --figma-color-bg-success-secondary: rgba(76, 175, 80, 0.1);
+  --figma-color-bg-warning: #ffc107;
+  --figma-color-bg-warning-secondary: rgba(255, 193, 7, 0.1);
 
-  --theme-text-primary: #000000;
-  --theme-text-secondary: #666666;
-  --theme-text-tertiary: #999999;
-  --theme-text-disabled: #cccccc;
-  --theme-text-on-brand: #ffffff;
+  --figma-color-text: #000000;
+  --figma-color-text-secondary: #666666;
+  --figma-color-text-tertiary: #999999;
+  --figma-color-text-disabled: #cccccc;
+  --figma-color-text-onbrand: #ffffff;
+  --figma-color-text-brand: #18a0fb;
 
-  --theme-border: #e0e0e0;
-  --theme-border-strong: #cccccc;
-  --theme-border-brand: #18a0fb;
+  --figma-color-border: #e0e0e0;
+  --figma-color-border-strong: #cccccc;
+  --figma-color-border-brand: #18a0fb;
 
   --theme-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --theme-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -30,48 +39,35 @@
 
 /* Dark Theme */
 :root[data-theme="dark"] {
-  --theme-bg-primary: #1e1e1e;
-  --theme-bg-secondary: #2d2d2d;
-  --theme-bg-tertiary: #3a3a3a;
-  --theme-bg-hover: #333333;
-  --theme-bg-brand: #18a0fb;
-  --theme-bg-brand-hover: #0d8ce8;
-  --theme-bg-danger: #f24822;
+  --figma-color-bg: #1e1e1e;
+  --figma-color-bg-secondary: #2d2d2d;
+  --figma-color-bg-tertiary: #3a3a3a;
+  --figma-color-bg-hover: #333333;
+  --figma-color-bg-brand: #18a0fb;
+  --figma-color-bg-brand-hover: #0d8ce8;
+  --figma-color-bg-disabled: #3a3a3a;
+  --figma-color-bg-danger: #f24822;
+  --figma-color-bg-danger-hover: #d93a18;
+  --figma-color-bg-danger-secondary: rgba(242, 72, 34, 0.15);
+  --figma-color-bg-success: #4caf50;
+  --figma-color-bg-success-secondary: rgba(76, 175, 80, 0.15);
+  --figma-color-bg-warning: #ffc107;
+  --figma-color-bg-warning-secondary: rgba(255, 193, 7, 0.15);
 
-  --theme-text-primary: #ffffff;
-  --theme-text-secondary: #b0b0b0;
-  --theme-text-tertiary: #808080;
-  --theme-text-disabled: #505050;
-  --theme-text-on-brand: #ffffff;
+  --figma-color-text: #ffffff;
+  --figma-color-text-secondary: #b0b0b0;
+  --figma-color-text-tertiary: #808080;
+  --figma-color-text-disabled: #505050;
+  --figma-color-text-onbrand: #ffffff;
+  --figma-color-text-brand: #18a0fb;
 
-  --theme-border: #3a3a3a;
-  --theme-border-strong: #4a4a4a;
-  --theme-border-brand: #18a0fb;
+  --figma-color-border: #3a3a3a;
+  --figma-color-border-strong: #4a4a4a;
+  --figma-color-border-brand: #18a0fb;
 
   --theme-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --theme-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
   --theme-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5);
-}
-
-/* Apply theme variables to Figma color tokens */
-body {
-  --figma-color-bg: var(--theme-bg-primary);
-  --figma-color-bg-secondary: var(--theme-bg-secondary);
-  --figma-color-bg-tertiary: var(--theme-bg-tertiary);
-  --figma-color-bg-hover: var(--theme-bg-hover);
-  --figma-color-bg-brand: var(--theme-bg-brand);
-  --figma-color-bg-brand-hover: var(--theme-bg-brand-hover);
-  --figma-color-bg-disabled: var(--theme-bg-tertiary);
-
-  --figma-color-text: var(--theme-text-primary);
-  --figma-color-text-secondary: var(--theme-text-secondary);
-  --figma-color-text-tertiary: var(--theme-text-tertiary);
-  --figma-color-text-disabled: var(--theme-text-disabled);
-  --figma-color-text-onbrand: var(--theme-text-on-brand);
-
-  --figma-color-border: var(--theme-border);
-  --figma-color-border-strong: var(--theme-border-strong);
-  --figma-color-border-brand: var(--theme-border-brand);
 }
 
 /* Smooth theme transitions */
@@ -79,7 +75,6 @@ body,
 .panel,
 .modal-content,
 .group-card,
-.provider-card,
 input,
 select,
 button {

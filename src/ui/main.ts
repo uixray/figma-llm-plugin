@@ -356,11 +356,14 @@ class PluginUI {
       this.handleFirstRunLanguageSelected();
     });
 
-    // Help page language dropdown
-    document.getElementById('help-language-select')?.addEventListener('change', (e) => {
+    // Settings page language dropdown
+    document.getElementById('settings-language-select')?.addEventListener('change', (e) => {
       const newLang = (e.target as HTMLSelectElement).value as Language;
       this.changeLanguage(newLang);
     });
+
+    // NOTE: Help page language/theme dropdowns are handled by HelpPanel.ts
+    // Do not add duplicate listeners here - it creates conflicts
   }
 
   /**
