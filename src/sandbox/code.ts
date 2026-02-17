@@ -593,12 +593,20 @@ class PluginSandbox {
       }
 
       if (!config || !config.enabled) {
-        throw new Error('Provider not configured or disabled. Please configure a provider in Settings.');
+        throw new Error(
+          '⚙️ Provider not found or disabled.\n' +
+          'Go to Settings → Provider Groups → create a group with at least one model enabled.\n' +
+          'Then select the model in the Generate tab dropdown.'
+        );
       }
 
       const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
       if (!baseConfig) {
-        throw new Error('Provider configuration not found');
+        throw new Error(
+          '⚙️ Provider model configuration not found.\n' +
+          `Base config "${config.baseConfigId}" does not exist in PROVIDER_CONFIGS.\n` +
+          'Try deleting this provider group and creating a new one.'
+        );
       }
 
       const provider = ProviderFactory.createProvider(config, baseConfig);
