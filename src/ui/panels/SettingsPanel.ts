@@ -313,17 +313,23 @@ export class SettingsPanel {
   }
 
   /**
-   * Сохранить настройки
+   * Сохранить настройки в хранилище Figma (тихо, без уведомления)
    */
-  private saveSettings(): void {
+  private persistSettings(): void {
     if (!this.settings) return;
-
     sendToSandbox({
       type: 'save-settings',
       id: generateUniqueId(),
       settings: this.settings,
     });
+  }
 
+  /**
+   * Сохранить настройки (по нажатию кнопки, с уведомлением)
+   */
+  private saveSettings(): void {
+    if (!this.settings) return;
+    this.persistSettings();
     this.showSuccess('Settings saved successfully');
   }
 
@@ -404,7 +410,6 @@ export class SettingsPanel {
       // Обновляем локальный state
       this.settings = settings;
       this.renderGroupsList();
-      this.renderProvidersList();
       this.renderGenerationSettings();
 
       this.showSuccess('Settings imported successfully');
@@ -618,6 +623,7 @@ export class SettingsPanel {
     const modal = document.getElementById('group-editor-modal');
     if (modal) modal.style.display = 'none';
     this.renderGroupsList();
+    this.persistSettings();
     this.showSuccess(existingGroup ? 'Group updated' : 'Group created');
   }
 
@@ -631,6 +637,7 @@ export class SettingsPanel {
     if (group) {
       group.enabled = !group.enabled;
       this.renderGroupsList();
+      this.persistSettings();
     }
   }
 
@@ -646,6 +653,7 @@ export class SettingsPanel {
     if (confirm(`Delete group "${group.name}"? This will remove all models in this group.`)) {
       this.settings.providerGroups = this.settings.providerGroups.filter((g) => g.id !== groupId);
       this.renderGroupsList();
+      this.persistSettings();
     }
   }
 
@@ -696,6 +704,7 @@ export class SettingsPanel {
       const updatedGroup = addModelToGroup(this.settings.providerGroups[groupIndex], baseConfigId);
       this.settings.providerGroups[groupIndex] = updatedGroup;
       this.renderGroupsList();
+      this.persistSettings();
       this.showSuccess('Model added to group');
     } catch (error) {
       this.showError((error as Error).message);
@@ -723,6 +732,7 @@ export class SettingsPanel {
         const updatedGroup = removeModelFromGroup(group, modelId);
         this.settings.providerGroups[groupIndex] = updatedGroup;
         this.renderGroupsList();
+        this.persistSettings();
         this.showSuccess('Model removed from group');
       } catch (error) {
         this.showError((error as Error).message);
@@ -743,6 +753,7 @@ export class SettingsPanel {
     if (model) {
       model.enabled = !model.enabled;
       this.renderGroupsList();
+      this.persistSettings();
     }
   }
 
@@ -771,8 +782,28 @@ export class SettingsPanel {
   }
 
   /**
-   * Извлечь folder ID из Model URI (gpt://FOLDER_ID/model/version)
+   * Иконка провайдера
    */
+  private getProviderIcon(providerId: string): string {
+    const icons: Record<string, string> = {
+      lmstudio: '🖥️', openai: '🤖', claude: '🧠', gemini: '✨',
+      yandex: '🇷🇺', mistral: '🌊', groq: '⚡', cohere: '🔮',
+    };
+    return icons[providerId] || '🔌';
+  }
+
+  /**
+   * Человеко-читаемое название провайдера
+   */
+  private getProviderLabel(providerId: string): string {
+    const labels: Record<string, string> = {
+      lmstudio: 'LM Studio (Local)', openai: 'OpenAI', claude: 'Claude (Anthropic)',
+      gemini: 'Google Gemini', yandex: 'Yandex GPT', mistral: 'Mistral AI',
+      groq: 'Groq', cohere: 'Cohere',
+    };
+    return labels[providerId] || providerId;
+  }
+
   /**
    * Экранирование HTML
    */
