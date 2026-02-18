@@ -1,6 +1,8 @@
 import { sendToSandbox } from '../../shared/messages';
-import { RenameSettings, RenamePreview } from '../../shared/types';
+import { RenameSettings, RenamePreview, PluginSettings } from '../../shared/types';
 import { generateUniqueId } from '../../shared/utils';
+import { PROVIDER_CONFIGS } from '../../shared/providers';
+import { getAllProviderConfigs } from '../../shared/provider-converter';
 
 type RenameMode = 'style' | 'ai';
 
@@ -10,12 +12,71 @@ type RenameMode = 'style' | 'ai';
  */
 export class RenamePanel {
   private renameSettings: RenameSettings | null = null;
+  private pluginSettings: PluginSettings | null = null;
   private currentPreview: RenamePreview[] = [];
   private selectedPresetId: string | null = null;
   private currentMode: RenameMode = 'style';
 
   constructor() {
     this.setupEventListeners();
+  }
+
+  /**
+   * Load plugin settings (for provider dropdown in AI mode)
+   */
+  loadPluginSettings(settings: PluginSettings): void {
+    this.pluginSettings = settings;
+    this.populateProviderDropdown();
+  }
+
+  /**
+   * Populate AI provider dropdown from plugin settings
+   */
+  private populateProviderDropdown(): void {
+    const select = document.getElementById('ai-rename-provider-select') as HTMLSelectElement;
+    if (!select || !this.pluginSettings) return;
+
+    select.innerHTML = '';
+
+    // V2.1: Combine Legacy providers and Provider Groups
+    const legacyConfigs = this.pluginSettings.providerConfigs || [];
+    const groups = this.pluginSettings.providerGroups || [];
+    const allConfigs = getAllProviderConfigs(legacyConfigs, groups);
+    const enabledConfigs = allConfigs.filter(c => c.enabled);
+
+    if (enabledConfigs.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No providers configured';
+      select.appendChild(opt);
+      return;
+    }
+
+    enabledConfigs.forEach(config => {
+      const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
+      const opt = document.createElement('option');
+      opt.value = config.id;
+      const icon = baseConfig ? this.getProviderIcon(baseConfig.provider) : '🔧';
+      opt.textContent = `${icon} ${config.name}`;
+      select.appendChild(opt);
+    });
+
+    // Select the active provider/model
+    const activeId = this.pluginSettings.activeModelId || this.pluginSettings.activeProviderId;
+    if (activeId) {
+      select.value = activeId;
+    }
+  }
+
+  /**
+   * Get provider emoji icon
+   */
+  private getProviderIcon(provider: string): string {
+    const icons: Record<string, string> = {
+      openai: '🤖', yandex: '🇷🇺', claude: '🔮', gemini: '♊',
+      mistral: '🌬️', groq: '⚡', cohere: '🧠', lmstudio: '💻', other: '🔧',
+    };
+    return icons[provider] || '';
   }
 
   /**
@@ -204,6 +265,14 @@ export class RenamePanel {
       return;
     }
 
+    const providerSelect = document.getElementById('ai-rename-provider-select') as HTMLSelectElement;
+    const providerId = providerSelect?.value;
+
+    if (!providerId) {
+      this.showError('Please select an AI provider');
+      return;
+    }
+
     const includeHierarchy = (document.getElementById('ai-rename-hierarchy') as HTMLInputElement)?.checked ?? true;
 
     this.showLoading(true);
@@ -212,6 +281,7 @@ export class RenamePanel {
       type: 'ai-rename-preview',
       id: generateUniqueId(),
       prompt,
+      providerId,
       includeHierarchy,
     });
   }

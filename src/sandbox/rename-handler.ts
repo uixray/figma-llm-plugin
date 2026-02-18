@@ -124,7 +124,7 @@ export class RenameHandler {
   /**
    * AI Rename: генерация имён через AI провайдер
    */
-  async handleAIPreview(prompt: string, includeHierarchy: boolean): Promise<void> {
+  async handleAIPreview(prompt: string, providerId: string, includeHierarchy: boolean): Promise<void> {
     try {
       // Проверяем выделение
       const selection = figma.currentPage.selection;
@@ -153,14 +153,18 @@ export class RenameHandler {
         return;
       }
 
-      // Получаем активный провайдер
-      const settings = await this.storageManager.loadSettings();
-      const activeProviderId = settings.activeProviderId;
+      // Используем providerId из UI (выбранный пользователем в дропдауне)
+      // Fallback на settings для обратной совместимости
+      let activeProviderId = providerId;
+      if (!activeProviderId) {
+        const settings = await this.storageManager.loadSettings();
+        activeProviderId = settings.activeModelId || settings.activeProviderId || '';
+      }
 
       if (!activeProviderId) {
         sendToUI({
           type: 'notification',
-          message: 'No AI provider configured. Go to Settings to set up a provider.',
+          message: 'No AI provider selected. Please select a provider in the AI Rename section.',
           level: 'error',
         });
         sendToUI({ type: 'rename-preview-result', preview: [] });

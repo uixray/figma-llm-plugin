@@ -248,6 +248,7 @@ class PluginUI {
     this.settingsPanel.loadSettings(message.settings);
     this.generatePanel.loadSettings(message.settings);
     this.promptsPanel.loadSettings(message.settings);
+    this.renamePanel.loadPluginSettings(message.settings);
 
     const settings = message.settings as PluginSettings;
 

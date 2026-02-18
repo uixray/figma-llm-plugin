@@ -95,13 +95,21 @@ export function modelToUserConfig(
   group: ProviderGroup,
   model: ModelConfig
 ): UserProviderConfig {
+  // For LM Studio: URL is stored on group.customUrl (shared for all models)
+  // For "other" custom providers: URL is stored on model.customUrl
+  // For all others: model.customUrl (if any override)
+  const resolvedCustomUrl =
+    group.baseProviderId === 'lmstudio' ? group.customUrl :
+    group.baseProviderId === 'other' ? model.customUrl :
+    model.customUrl;
+
   return {
     id: model.id,
     baseConfigId: model.baseConfigId,
     name: model.name,
-    apiKey: group.sharedApiKey,
+    apiKey: group.baseProviderId === 'lmstudio' ? 'not-required' : group.sharedApiKey,
     customPricing: model.customPricing,
-    customUrl: model.customUrl || group.sharedProxy?.url,
+    customUrl: resolvedCustomUrl,
     folderId: group.folderId,
     modelName: model.modelName,
     enabled: model.enabled && group.enabled,

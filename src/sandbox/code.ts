@@ -463,7 +463,7 @@ class PluginSandbox {
           await this.renameHandler.handleApply(message.preview, message.presetId);
           break;
         case 'ai-rename-preview':
-          await this.renameHandler.handleAIPreview(message.prompt, message.includeHierarchy);
+          await this.renameHandler.handleAIPreview(message.prompt, message.providerId, message.includeHierarchy);
           break;
 
         // V2 Prompts messages

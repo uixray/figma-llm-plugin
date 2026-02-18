@@ -295,6 +295,13 @@
       <!-- AI Mode Section -->
       <div id="rename-ai-section" style="display: none;">
         <div class="section">
+          <label>AI Provider:</label>
+          <select id="ai-rename-provider-select">
+            <option value="">No providers configured</option>
+          </select>
+        </div>
+
+        <div class="section">
           <label data-i18n="rename.aiPrompt.label">AI Prompt:</label>
           <textarea id="ai-rename-prompt" rows="3" data-i18n-placeholder="rename.aiPrompt.placeholder" placeholder="E.g.: Use semantic names based on content, follow BEM convention..."></textarea>
         </div>
