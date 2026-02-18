@@ -6,6 +6,7 @@ import type {
   DataPresetSettings,
   RenameSettings,
   RenamePreview,
+  RenamePreset,
   SavedPromptsLibrary,
   SavedPrompt,
 } from './types';
@@ -208,6 +209,22 @@ export interface AIRenamePreviewRequest {
 }
 
 /**
+ * Сохранение кастомного пресета переименования
+ */
+export interface SaveRenamePresetRequest {
+  type: 'save-rename-preset';
+  preset: RenamePreset;
+}
+
+/**
+ * Удаление кастомного пресета переименования
+ */
+export interface DeleteRenamePresetRequest {
+  type: 'delete-rename-preset';
+  presetId: string;
+}
+
+/**
  * Union type для всех сообщений UI → Sandbox
  */
 export type UIToSandboxMessage =
@@ -234,7 +251,9 @@ export type UIToSandboxMessage =
   | GenerateMultiRequest
   | CancelMultiGenerationRequest
   | ApplyMultiResultsRequest
-  | AIRenamePreviewRequest;
+  | AIRenamePreviewRequest
+  | SaveRenamePresetRequest
+  | DeleteRenamePresetRequest;
 
 // ============================================================================
 // Message Types: Sandbox → UI

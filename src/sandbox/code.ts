@@ -465,6 +465,12 @@ class PluginSandbox {
         case 'ai-rename-preview':
           await this.renameHandler.handleAIPreview(message.prompt, message.providerId, message.includeHierarchy);
           break;
+        case 'save-rename-preset':
+          await this.renameHandler.handleSavePreset(message.preset);
+          break;
+        case 'delete-rename-preset':
+          await this.renameHandler.handleDeletePreset(message.presetId);
+          break;
 
         // V2 Prompts messages
         case 'load-prompts-library':

@@ -5,7 +5,7 @@ import {
   shouldIgnoreNode,
   shouldRenameNode,
 } from './rename-helpers';
-import { RenamePreview } from '../shared/types';
+import { RenamePreview, RenamePreset } from '../shared/types';
 import { sendToUI } from '../shared/messages';
 import { ApiClient } from './api-client';
 import { SimpleAbortSignal } from '../shared/abort-helper';
@@ -375,21 +375,99 @@ Example response:
   }
 
   /**
-   * Создание кастомного пресета
+   * Сохранение кастомного пресета (создание или обновление)
    */
-  async handleCreatePreset(name: string, rules: any[]): Promise<void> {
+  async handleSavePreset(preset: RenamePreset): Promise<void> {
     try {
-      // TODO: Реализовать создание кастомного пресета
+      const settings = await this.storageManager.loadRenameSettings();
+
+      // Ищем существующий пресет с таким id (обновление)
+      const existingIndex = settings.presets.findIndex((p) => p.id === preset.id);
+      if (existingIndex >= 0) {
+        settings.presets[existingIndex] = { ...preset, updatedAt: Date.now() };
+      } else {
+        settings.presets.push(preset);
+      }
+      settings.lastUpdated = Date.now();
+
+      await this.storageManager.saveRenameSettings(settings);
+
+      console.log(`[RenameHandler] Preset saved: ${preset.name}`);
+
+      // Отправляем обновлённые настройки в UI
+      sendToUI({
+        type: 'rename-settings-loaded',
+        settings,
+      });
+
       sendToUI({
         type: 'notification',
-        message: 'Custom preset creation will be available in the next version',
+        message: `Preset "${preset.name}" saved`,
+        level: 'success',
+      });
+    } catch (error: any) {
+      console.error('[RenameHandler] Failed to save preset:', error);
+      sendToUI({
+        type: 'notification',
+        message: `Failed to save preset: ${error.message}`,
+        level: 'error',
+      });
+    }
+  }
+
+  /**
+   * Удаление кастомного пресета
+   */
+  async handleDeletePreset(presetId: string): Promise<void> {
+    try {
+      const settings = await this.storageManager.loadRenameSettings();
+
+      const preset = settings.presets.find((p) => p.id === presetId);
+      if (!preset) {
+        sendToUI({
+          type: 'notification',
+          message: 'Preset not found',
+          level: 'error',
+        });
+        return;
+      }
+
+      // Не позволяем удалять встроенные пресеты
+      if (preset.type !== 'custom') {
+        sendToUI({
+          type: 'notification',
+          message: 'Cannot delete built-in presets',
+          level: 'warning',
+        });
+        return;
+      }
+
+      settings.presets = settings.presets.filter((p) => p.id !== presetId);
+      if (settings.lastUsedPresetId === presetId) {
+        settings.lastUsedPresetId = settings.presets[0]?.id;
+      }
+      settings.lastUpdated = Date.now();
+
+      await this.storageManager.saveRenameSettings(settings);
+
+      console.log(`[RenameHandler] Preset deleted: ${presetId}`);
+
+      // Отправляем обновлённые настройки в UI
+      sendToUI({
+        type: 'rename-settings-loaded',
+        settings,
+      });
+
+      sendToUI({
+        type: 'notification',
+        message: `Preset "${preset.name}" deleted`,
         level: 'info',
       });
-    } catch (error) {
-      console.error('[RenameHandler] Failed to create preset:', error);
+    } catch (error: any) {
+      console.error('[RenameHandler] Failed to delete preset:', error);
       sendToUI({
         type: 'notification',
-        message: `Failed to create preset: ${error.message}`,
+        message: `Failed to delete preset: ${error.message}`,
         level: 'error',
       });
     }

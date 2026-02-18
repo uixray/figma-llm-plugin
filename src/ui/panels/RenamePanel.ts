@@ -1,5 +1,5 @@
 import { sendToSandbox } from '../../shared/messages';
-import { RenameSettings, RenamePreview, PluginSettings } from '../../shared/types';
+import { RenameSettings, RenamePreview, RenamePreset, RenameRule, PluginSettings } from '../../shared/types';
 import { generateUniqueId } from '../../shared/utils';
 import { PROVIDER_CONFIGS } from '../../shared/providers';
 import { getAllProviderConfigs } from '../../shared/provider-converter';
@@ -97,6 +97,7 @@ export class RenamePanel {
       const target = e.target as HTMLSelectElement;
       this.selectedPresetId = target.value;
       this.updatePresetDescription();
+      this.updateCustomPresetActions();
     });
 
     // Style Mode: Кнопка "Preview"
@@ -109,6 +110,28 @@ export class RenamePanel {
       this.showCustomPresetDialog();
     });
 
+    // Style Mode: Edit custom preset
+    document.getElementById('rename-edit-preset-btn')?.addEventListener('click', () => {
+      const preset = this.renameSettings?.presets.find(p => p.id === this.selectedPresetId);
+      if (preset && preset.type === 'custom') {
+        this.showCustomPresetDialog(preset);
+      }
+    });
+
+    // Style Mode: Delete custom preset
+    document.getElementById('rename-delete-preset-btn')?.addEventListener('click', () => {
+      const preset = this.renameSettings?.presets.find(p => p.id === this.selectedPresetId);
+      if (!preset || preset.type !== 'custom') return;
+
+      const confirmed = confirm(`Delete preset "${preset.name}"?`);
+      if (!confirmed) return;
+
+      sendToSandbox({
+        type: 'delete-rename-preset',
+        presetId: preset.id,
+      });
+    });
+
     // AI Mode: Кнопка "AI Preview"
     document.getElementById('ai-rename-preview-btn')?.addEventListener('click', () => {
       this.handleAIPreview();
@@ -117,6 +140,33 @@ export class RenamePanel {
     // Shared: Кнопка "Apply"
     document.getElementById('rename-apply-btn')?.addEventListener('click', () => {
       this.handleApply();
+    });
+
+    // Custom Preset Modal: Add Rule
+    document.getElementById('custom-preset-add-rule')?.addEventListener('click', () => {
+      this.addRuleRow('', '');
+    });
+
+    // Custom Preset Modal: Save
+    document.getElementById('custom-preset-save')?.addEventListener('click', () => {
+      this.saveCustomPreset();
+    });
+
+    // Custom Preset Modal: Cancel
+    document.getElementById('custom-preset-cancel')?.addEventListener('click', () => {
+      this.hideCustomPresetModal();
+    });
+
+    // Custom Preset Modal: Close (×)
+    document.getElementById('custom-preset-modal-close')?.addEventListener('click', () => {
+      this.hideCustomPresetModal();
+    });
+
+    // Custom Preset Modal: Close on backdrop click
+    document.getElementById('custom-preset-modal')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        this.hideCustomPresetModal();
+      }
     });
   }
 
@@ -177,9 +227,27 @@ export class RenamePanel {
     this.renameSettings.presets.forEach((preset) => {
       const option = document.createElement('option');
       option.value = preset.id;
-      option.textContent = preset.name;
+      option.textContent = preset.type === 'custom' ? `⚙️ ${preset.name}` : preset.name;
       select.appendChild(option);
     });
+
+    // Update delete/edit button visibility based on selected preset
+    this.updateCustomPresetActions();
+  }
+
+  /**
+   * Update visibility of Edit/Delete buttons depending on selected preset type
+   */
+  private updateCustomPresetActions(): void {
+    const select = document.getElementById('rename-preset-select') as HTMLSelectElement;
+    const preset = this.renameSettings?.presets.find(p => p.id === select?.value);
+    const isCustom = preset?.type === 'custom';
+
+    const editBtn = document.getElementById('rename-edit-preset-btn') as HTMLButtonElement | null;
+    const deleteBtn = document.getElementById('rename-delete-preset-btn') as HTMLButtonElement | null;
+
+    if (editBtn) editBtn.style.display = isCustom ? 'inline-flex' : 'none';
+    if (deleteBtn) deleteBtn.style.display = isCustom ? 'inline-flex' : 'none';
   }
 
   /**
@@ -190,6 +258,7 @@ export class RenamePanel {
     if (select && this.selectedPresetId) {
       select.value = this.selectedPresetId;
     }
+    this.updateCustomPresetActions();
   }
 
   /**
@@ -399,11 +468,128 @@ export class RenamePanel {
     if (applyBtn) applyBtn.disabled = true;
   }
 
+  // ============================================================================
+  // Custom Preset Modal
+  // ============================================================================
+
   /**
    * Показать диалог создания кастомного пресета
    */
-  private showCustomPresetDialog(): void {
-    alert('Custom preset creation will be available in the next version');
+  private showCustomPresetDialog(existingPreset?: RenamePreset): void {
+    const modal = document.getElementById('custom-preset-modal');
+    if (!modal) return;
+
+    const nameInput = document.getElementById('custom-preset-name') as HTMLInputElement;
+    const rulesList = document.getElementById('custom-preset-rules-list');
+
+    // Reset form
+    if (nameInput) nameInput.value = existingPreset?.name || '';
+    if (rulesList) rulesList.innerHTML = '';
+
+    // Store editing preset id on modal for save handler
+    modal.dataset.editingPresetId = existingPreset?.id || '';
+
+    // If editing, populate existing rules
+    if (existingPreset && existingPreset.rules.length > 0) {
+      existingPreset.rules.forEach(rule => this.addRuleRow(rule.pattern, rule.replacement));
+    } else {
+      // Add one empty rule row by default
+      this.addRuleRow('', '');
+    }
+
+    modal.style.display = 'flex';
+    if (nameInput) nameInput.focus();
+  }
+
+  /**
+   * Add a rule input row to the rules list
+   */
+  private addRuleRow(pattern: string = '', replacement: string = ''): void {
+    const rulesList = document.getElementById('custom-preset-rules-list');
+    if (!rulesList) return;
+
+    const row = document.createElement('div');
+    row.className = 'custom-preset-rule';
+    row.innerHTML = `
+      <input type="text" class="rule-pattern" placeholder="Find (regex)" value="${this.escapeHtml(pattern)}">
+      <span style="color:var(--figma-color-text-secondary);flex-shrink:0">→</span>
+      <input type="text" class="rule-replacement" placeholder="Replace with" value="${this.escapeHtml(replacement)}">
+      <button class="btn-icon rule-remove-btn" title="Remove rule">✕</button>
+    `;
+
+    row.querySelector('.rule-remove-btn')?.addEventListener('click', () => {
+      row.remove();
+    });
+
+    rulesList.appendChild(row);
+  }
+
+  /**
+   * Hide the custom preset modal
+   */
+  private hideCustomPresetModal(): void {
+    const modal = document.getElementById('custom-preset-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  /**
+   * Collect rules from the modal form
+   */
+  private collectRulesFromModal(): RenameRule[] {
+    const rulesList = document.getElementById('custom-preset-rules-list');
+    if (!rulesList) return [];
+
+    const rules: RenameRule[] = [];
+    const rows = rulesList.querySelectorAll('.custom-preset-rule');
+
+    rows.forEach(row => {
+      const pattern = (row.querySelector('.rule-pattern') as HTMLInputElement)?.value?.trim();
+      const replacement = (row.querySelector('.rule-replacement') as HTMLInputElement)?.value ?? '';
+      if (pattern) {
+        rules.push({ pattern, replacement, caseSensitive: false });
+      }
+    });
+
+    return rules;
+  }
+
+  /**
+   * Save custom preset from modal
+   */
+  private saveCustomPreset(): void {
+    const modal = document.getElementById('custom-preset-modal');
+    const nameInput = document.getElementById('custom-preset-name') as HTMLInputElement;
+    const name = nameInput?.value?.trim();
+
+    if (!name) {
+      this.showError('Please enter a preset name');
+      return;
+    }
+
+    const rules = this.collectRulesFromModal();
+    if (rules.length === 0) {
+      this.showError('Please add at least one rule');
+      return;
+    }
+
+    const now = Date.now();
+    const editingPresetId = modal?.dataset.editingPresetId || '';
+
+    const preset: RenamePreset = {
+      id: editingPresetId || generateUniqueId(),
+      name,
+      type: 'custom',
+      rules,
+      createdAt: editingPresetId ? (this.renameSettings?.presets.find(p => p.id === editingPresetId)?.createdAt ?? now) : now,
+      updatedAt: now,
+    };
+
+    sendToSandbox({
+      type: 'save-rename-preset',
+      preset,
+    });
+
+    this.hideCustomPresetModal();
   }
 
   // ============================================================================

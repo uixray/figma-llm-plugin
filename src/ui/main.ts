@@ -264,11 +264,11 @@ class PluginUI {
       }
     }
 
-    // TODO: TEMPORARY — always show first-run screen for testing
-    // Restore original condition after testing:
-    // const hasNoProviders = !settings.providerConfigs || settings.providerConfigs.length === 0;
-    // if (hasNoProviders) { this.showFirstRunScreen(); }
-    this.showFirstRunScreen();
+    // Show first-run screen only if no language is set (genuine first launch)
+    const hasLanguage = !!settings.language;
+    if (!hasLanguage) {
+      this.showFirstRunScreen();
+    }
 
     const pending = this.pendingRequests.get(message.id);
     if (pending) {

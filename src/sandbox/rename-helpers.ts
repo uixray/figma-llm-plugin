@@ -2,15 +2,12 @@ import { RenameRule, RenamePreview, RenamePreset } from '../shared/types';
 
 /**
  * Проверить, нужно ли пропустить узел при переименовании
+ * NOTE: mainComponent is not used here because it requires getMainComponentAsync()
+ * in dynamic-page documentAccess mode. INSTANCE nodes are skipped by type check.
  */
 export function shouldIgnoreNode(node: SceneNode): boolean {
-  // Пропускаем компоненты и их содержимое
-  if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
-    return true;
-  }
-
-  // Проверяем, является ли узел экземпляром компонента
-  if ('mainComponent' in node && node.mainComponent) {
+  // Пропускаем компоненты, наборы компонентов и экземпляры
+  if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET' || node.type === 'INSTANCE') {
     return true;
   }
 
