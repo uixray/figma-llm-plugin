@@ -506,8 +506,10 @@ export class SettingsPanel {
 
     const customApiUrlInput = document.getElementById('group-custom-apiurl-input') as HTMLInputElement;
     const customModelNameInput = document.getElementById('group-custom-modelname-input') as HTMLInputElement;
+    const lmstudioModelNameInput = document.getElementById('group-lmstudio-modelname-input') as HTMLInputElement;
     const customModelGroup = document.getElementById('group-custom-model-group');
     const customModelNameGroup = document.getElementById('group-custom-modelname-group');
+    const lmstudioModelNameGroup = document.getElementById('group-lmstudio-modelname-group');
     const modelsSection = document.getElementById('group-models-section');
 
     if (group) {
@@ -528,9 +530,18 @@ export class SettingsPanel {
         const firstModel = group.modelConfigs[0];
         if (customApiUrlInput) customApiUrlInput.value = firstModel.customUrl || '';
         if (customModelNameInput) customModelNameInput.value = firstModel.modelName || firstModel.name || '';
+        if (lmstudioModelNameInput) lmstudioModelNameInput.value = '';
+      } else if (group.baseProviderId === 'lmstudio') {
+        if (customApiUrlInput) customApiUrlInput.value = '';
+        if (customModelNameInput) customModelNameInput.value = '';
+        // For LM Studio, show the model name from the first model config
+        const firstModel = group.modelConfigs[0];
+        if (lmstudioModelNameInput) lmstudioModelNameInput.value = firstModel?.modelName || '';
+        this.loadModelsForProvider(group.baseProviderId, group.modelConfigs);
       } else {
         if (customApiUrlInput) customApiUrlInput.value = '';
         if (customModelNameInput) customModelNameInput.value = '';
+        if (lmstudioModelNameInput) lmstudioModelNameInput.value = '';
         this.loadModelsForProvider(group.baseProviderId, group.modelConfigs);
       }
     } else {
@@ -545,11 +556,13 @@ export class SettingsPanel {
       if (customUrlInput) customUrlInput.value = '';
       if (customApiUrlInput) customApiUrlInput.value = '';
       if (customModelNameInput) customModelNameInput.value = '';
+      if (lmstudioModelNameInput) lmstudioModelNameInput.value = '';
       const modelsList = document.getElementById('group-models-list');
       if (modelsList) modelsList.innerHTML = '<p class="hint">Select a provider first</p>';
     }
 
     const isOther = providerSelect?.value === 'other';
+    const isLmStudio = providerSelect?.value === 'lmstudio';
 
     // Folder ID только для Yandex
     const folderIdGroup = document.getElementById('group-folderid-group');
@@ -557,12 +570,16 @@ export class SettingsPanel {
 
     // Custom URL только для LM Studio
     const customUrlGroup = document.getElementById('group-customurl-group');
-    if (customUrlGroup) customUrlGroup.style.display = (providerSelect?.value === 'lmstudio') ? 'block' : 'none';
+    if (customUrlGroup) customUrlGroup.style.display = isLmStudio ? 'block' : 'none';
+
+    // Model Name только для LM Studio
+    if (lmstudioModelNameGroup) lmstudioModelNameGroup.style.display = isLmStudio ? 'block' : 'none';
 
     // Custom model fields for "Other" provider
     if (customModelGroup) customModelGroup.style.display = isOther ? 'block' : 'none';
     if (customModelNameGroup) customModelNameGroup.style.display = isOther ? 'block' : 'none';
-    if (modelsSection) modelsSection.style.display = isOther ? 'none' : 'block';
+    // LM Studio and Other: hide the models checklist (config built automatically)
+    if (modelsSection) modelsSection.style.display = (isOther || isLmStudio) ? 'none' : 'block';
 
     // Обработчик изменения провайдера
     const boundProviderChange = this.handleProviderChange.bind(this);
@@ -594,22 +611,26 @@ export class SettingsPanel {
     const provider = select.value;
     const folderIdGroup = document.getElementById('group-folderid-group');
     const customUrlGroup = document.getElementById('group-customurl-group');
+    const lmstudioModelNameGroup = document.getElementById('group-lmstudio-modelname-group');
     const customModelGroup = document.getElementById('group-custom-model-group');
     const customModelNameGroup = document.getElementById('group-custom-modelname-group');
     const modelsSection = document.getElementById('group-models-section');
 
-    if (folderIdGroup) folderIdGroup.style.display = (provider === 'yandex') ? 'block' : 'none';
-    if (customUrlGroup) customUrlGroup.style.display = (provider === 'lmstudio') ? 'block' : 'none';
-
-    // "Other" provider: show custom URL + model name fields, hide models checklist
+    const isLmStudio = provider === 'lmstudio';
     const isOther = provider === 'other';
+
+    if (folderIdGroup) folderIdGroup.style.display = (provider === 'yandex') ? 'block' : 'none';
+    if (customUrlGroup) customUrlGroup.style.display = isLmStudio ? 'block' : 'none';
+    if (lmstudioModelNameGroup) lmstudioModelNameGroup.style.display = isLmStudio ? 'block' : 'none';
+
+    // LM Studio and "Other" providers: hide models checklist (model config built automatically)
     if (customModelGroup) customModelGroup.style.display = isOther ? 'block' : 'none';
     if (customModelNameGroup) customModelNameGroup.style.display = isOther ? 'block' : 'none';
-    if (modelsSection) modelsSection.style.display = isOther ? 'none' : 'block';
+    if (modelsSection) modelsSection.style.display = (isOther || isLmStudio) ? 'none' : 'block';
 
-    if (provider && provider !== 'other') {
+    if (provider && provider !== 'other' && provider !== 'lmstudio') {
       this.loadModelsForProvider(provider, []);
-    } else if (provider === 'other') {
+    } else if (provider === 'other' || provider === 'lmstudio') {
       const modelsList = document.getElementById('group-models-list');
       if (modelsList) modelsList.innerHTML = '';
       this.updateModelCount();
@@ -668,6 +689,7 @@ export class SettingsPanel {
     const customUrlInput = document.getElementById('group-customurl-input') as HTMLInputElement;
     const customApiUrlInput = document.getElementById('group-custom-apiurl-input') as HTMLInputElement;
     const customModelNameInput = document.getElementById('group-custom-modelname-input') as HTMLInputElement;
+    const lmstudioModelNameInput = document.getElementById('group-lmstudio-modelname-input') as HTMLInputElement;
 
     const name = nameInput?.value.trim();
     const provider = providerSelect?.value;
@@ -684,7 +706,18 @@ export class SettingsPanel {
 
     let modelConfigs: ModelConfig[];
 
-    if (provider === 'other') {
+    if (provider === 'lmstudio') {
+      // LM Studio: auto-select the single lmstudio-custom model, attach user-specified model name
+      const lmstudioModelName = lmstudioModelNameInput?.value.trim() || '';
+      const existingModelId = existingGroup?.modelConfigs[0]?.id;
+      modelConfigs = [{
+        id: existingModelId || generateUniqueId(),
+        baseConfigId: 'lmstudio-custom',
+        name: lmstudioModelName || 'LM Studio',
+        enabled: true,
+        modelName: lmstudioModelName || undefined,
+      }];
+    } else if (provider === 'other') {
       // Custom "Other" provider — user specifies API URL and model name
       const customApiUrl = customApiUrlInput?.value.trim();
       const customModelName = customModelNameInput?.value.trim();

@@ -434,116 +434,7 @@
     </div>
 
     <div id="help-panel" class="panel">
-      <div class="help-preferences-section">
-        <div class="help-preference-row">
-          <div class="help-preference-item">
-            <label data-i18n="language.label">Language:</label>
-            <select id="help-language-select">
-              <option value="en">🇬🇧 English</option>
-              <option value="ru">🇷🇺 Русский</option>
-              <option value="ja">🇯🇵 日本語</option>
-              <option value="zh">🇨🇳 中文</option>
-              <option value="fr">🇫🇷 Français</option>
-            </select>
-          </div>
-          <div class="help-preference-item">
-            <label data-i18n="settings.general.theme">Theme:</label>
-            <select id="help-theme-select">
-              <option value="auto" data-i18n="settings.theme.auto">Auto</option>
-              <option value="light" data-i18n="settings.theme.light">Light</option>
-              <option value="dark" data-i18n="settings.theme.dark">Dark</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Contact / Support block -->
-      <div class="help-contact-block">
-        <div class="help-contact-title">💬 Contact &amp; Support</div>
-        <div class="help-contact-links">
-          <a href="https://t.me/uixray" target="_blank" class="help-contact-btn help-contact-tg">
-            <span>✈️</span> Telegram @uixray
-          </a>
-          <a href="https://boosty.to/uixray" target="_blank" class="help-contact-btn help-contact-boosty">
-            <span>☕</span> Support on Boosty
-          </a>
-        </div>
-        <p class="help-contact-note">Feedback, bug reports, and feature requests are welcome! If you find UText useful, consider supporting the project.</p>
-      </div>
-
-      <div class="help-section">
-        <h3 data-i18n="help.quickStart.title">📖 Quick Start Guide</h3>
-
-        <h4 data-i18n="help.dataSubstitution.title">Data Substitution</h4>
-        <p data-i18n="help.dataSubstitution.desc">Replace placeholder text in your designs with real data using presets.</p>
-        <ol data-i18n-html="help.dataSubstitution.steps">
-          <li>Go to <strong>Data</strong> tab</li>
-          <li>Create a preset with field names (e.g., name, email, phone)</li>
-          <li>Add groups with values for each field</li>
-          <li>Select frames/components in Figma</li>
-          <li>Click <strong>Apply to Selection</strong></li>
-        </ol>
-
-        <h4 data-i18n="help.howItWorks.title">How It Works</h4>
-        <p data-i18n="help.howItWorks.desc">The plugin matches text layer names with field names and replaces their content:</p>
-        <ul data-i18n-html="help.howItWorks.examples">
-          <li>Layer named "name" → gets "John Doe"</li>
-          <li>Layer named "email" → gets "john@example.com"</li>
-          <li>Layer named "name_email" → gets "John Doe, john@example.com" (multi-value)</li>
-        </ul>
-
-        <h4 data-i18n="help.quickActions.title">Quick Actions Menu</h4>
-        <p data-i18n="help.quickActions.desc">Access fast preset application via: Plugins → UText</p>
-        <ul data-i18n-html="help.quickActions.items">
-          <li><strong>Built-in Presets</strong> - Instant application of User/Product/Place/Other templates</li>
-          <li><strong>Apply Custom Preset</strong> - Choose from your saved presets</li>
-          <li><strong>Rename Layers by Content</strong> - Auto-rename layers based on their text content</li>
-        </ul>
-
-        <h4 data-i18n="help.reverseRenaming.title">Reverse Renaming</h4>
-        <p data-i18n="help.reverseRenaming.desc">Quickly set up layer names based on content:</p>
-        <ol data-i18n-html="help.reverseRenaming.steps">
-          <li>Add default values to preset fields (e.g., name → "John Doe")</li>
-          <li>Select text layers with placeholder content</li>
-          <li>Use <strong>Rename Layers by Content</strong></li>
-          <li>Layers containing "John Doe" → renamed to "name"</li>
-        </ol>
-
-        <h4 data-i18n="help.importExport.title">Import/Export</h4>
-        <p data-i18n="help.importExport.desc">Share presets with your team:</p>
-        <ul data-i18n-html="help.importExport.items">
-          <li><strong>Export</strong> - Save preset as JSON file</li>
-          <li><strong>Import</strong> - Load preset from JSON file</li>
-        </ul>
-
-        <h4 data-i18n="help.tips.title">Tips</h4>
-        <ul data-i18n-html="help.tips.items">
-          <li>Use simple, clear field names (name, title, price)</li>
-          <li>Set multi-value separator for combined fields</li>
-          <li>Create multiple groups for batch processing</li>
-          <li>Groups apply cyclically if you have more components than groups</li>
-        </ul>
-      </div>
-
-      <div class="help-section">
-        <h3 data-i18n="help.llm.title">🤖 LLM Text Generation</h3>
-        <p data-i18n="help.llm.desc">Generate creative text content using AI language models.</p>
-
-        <h4 data-i18n="help.providers.title">Supported Providers</h4>
-        <ul data-i18n-html="help.providers.items">
-          <li><strong>LM Studio</strong> - Local LLM hosting</li>
-          <li><strong>Yandex Cloud</strong> - YandexGPT API</li>
-          <li><strong>OpenAI Compatible</strong> - Any OpenAI-compatible API</li>
-        </ul>
-
-        <h4 data-i18n="help.setup.title">Setup</h4>
-        <ol data-i18n-html="help.setup.steps">
-          <li>Go to <strong>Settings</strong> tab</li>
-          <li>Select provider and enter credentials</li>
-          <li>Test connection</li>
-          <li>Save settings</li>
-        </ol>
-      </div>
+      <!-- Content rendered dynamically by HelpPanel.ts -->
     </div>
 
     <!-- Notifications -->
@@ -603,6 +494,13 @@
             <label data-i18n="settings.group.customUrl">Local Server URL (LM Studio):</label>
             <input type="text" id="group-customurl-input" placeholder="http://127.0.0.1:1234" data-i18n-placeholder="settings.group.customUrlPlaceholder">
             <p class="hint" data-i18n="settings.group.customUrlHint">Required for LM Studio. Default: http://127.0.0.1:1234</p>
+          </div>
+
+          <!-- Model Name (LM Studio only) -->
+          <div class="form-group" id="group-lmstudio-modelname-group" style="display: none;">
+            <label>Model Name (LM Studio):</label>
+            <input type="text" id="group-lmstudio-modelname-input" placeholder="e.g. lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF">
+            <p class="hint">Model identifier as shown in LM Studio. Leave empty to use the currently loaded model.</p>
           </div>
 
           <!-- Custom Model Name (Other provider) -->

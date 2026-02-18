@@ -146,10 +146,43 @@ export class HelpPanel {
 
   private render(): void {
     this.container.innerHTML = `
-      <div class="help-content">
-        <h2>${t('help.title')}</h2>
-        <p class="help-intro">${t('help.intro')}</p>
+      <div class="help-preferences-section">
+        <div class="help-preference-row">
+          <div class="help-preference-item">
+            <label data-i18n="language.label">Language:</label>
+            <select id="help-language-select">
+              <option value="en">🇬🇧 English</option>
+              <option value="ru">🇷🇺 Русский</option>
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="zh">🇨🇳 中文</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
+          </div>
+          <div class="help-preference-item">
+            <label data-i18n="settings.general.theme">Theme:</label>
+            <select id="help-theme-select">
+              <option value="auto" data-i18n="settings.theme.auto">Auto</option>
+              <option value="light" data-i18n="settings.theme.light">Light</option>
+              <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
+      <div class="help-contact-block">
+        <div class="help-contact-title">💬 Contact &amp; Support</div>
+        <div class="help-contact-links">
+          <a href="https://t.me/uixray" target="_blank" class="help-contact-btn help-contact-tg">
+            <span>✈️</span> Telegram @uixray
+          </a>
+          <a href="https://boosty.to/uixray" target="_blank" class="help-contact-btn help-contact-boosty">
+            <span>☕</span> Support on Boosty
+          </a>
+        </div>
+        <p class="help-contact-note">Feedback, bug reports, and feature requests are welcome! If you find UText useful, consider supporting the project.</p>
+      </div>
+
+      <div class="help-content">
         ${this.renderAccordion('yandex-setup', t('help.yandex.title'), this.renderYandexSetup())}
         ${this.renderAccordion('openai-setup', t('help.openai.title'), this.renderOpenAISetup())}
         ${this.renderAccordion('claude-setup', t('help.claude.title'), this.renderClaudeSetup())}
@@ -168,7 +201,9 @@ export class HelpPanel {
           <h3>${title}</h3>
         </div>
         <div class="accordion-content" data-content="${id}">
-          ${content}
+          <div class="accordion-body">
+            ${content}
+          </div>
         </div>
       </div>
     `;
