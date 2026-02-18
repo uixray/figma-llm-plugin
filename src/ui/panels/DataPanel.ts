@@ -21,7 +21,7 @@ export class DataPanel {
     document.getElementById('new-preset-btn')?.addEventListener('click', () => this.handleNewPreset());
     document.getElementById('edit-preset-btn')?.addEventListener('click', () => this.handleEditPreset());
     document.getElementById('add-field-name-btn')?.addEventListener('click', () => this.addFieldNameUI(''));
-    document.getElementById('add-group-btn')?.addEventListener('click', () => this.addGroupUI());
+    document.getElementById('data-add-group-btn')?.addEventListener('click', () => this.addGroupUI());
     document.getElementById('save-preset-btn')?.addEventListener('click', () => this.handleSavePreset());
     document.getElementById('delete-preset-btn')?.addEventListener('click', () => this.handleDeletePreset());
     document.getElementById('cancel-edit-btn')?.addEventListener('click', () => this.handleCancelEdit());

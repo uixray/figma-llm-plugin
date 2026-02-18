@@ -43,7 +43,7 @@
       <button class="tab active" data-tab="generate" data-i18n="tab.generate">Generate</button>
       <button class="tab" data-tab="data" data-i18n="tab.data">Data</button>
       <button class="tab" data-tab="rename" data-i18n="tab.rename">Rename</button>
-      <button class="tab" data-tab="settings" data-i18n="tab.settings">Settings</button>
+      <button class="tab" data-tab="settings" data-i18n="tab.settings">Providers</button>
       <button class="tab" data-tab="help" data-i18n="tab.help">Help</button>
     </div>
 
@@ -98,82 +98,52 @@
       </div>
     </div>
 
-    <!-- Settings Panel -->
+    <!-- Providers Panel (formerly Settings) -->
     <div id="settings-panel" class="panel">
-      <!-- Settings Tabs -->
-      <div class="settings-tabs">
-        <button class="settings-tab active" data-tab="groups" data-i18n="settings.tab.groups">Provider Groups</button>
-        <button class="settings-tab" data-tab="general" data-i18n="settings.tab.general">General</button>
+      <div class="section">
+        <div class="settings-header">
+          <h3 data-i18n="settings.groups.title">Provider Groups</h3>
+          <button id="add-group-btn" class="btn-primary" data-i18n="settings.addGroup">+ Add Group</button>
+        </div>
+        <p class="hint" data-i18n="settings.groups.hint">Group multiple models under one API key for easier management</p>
       </div>
 
-      <!-- Groups Tab (V2.1) -->
-      <div id="settings-tab-groups" class="settings-tab-content active">
-        <div class="section">
-          <div class="settings-header">
-            <h3 data-i18n="settings.groups.title">Provider Groups</h3>
-            <button id="add-group-btn" class="btn-primary" data-i18n="settings.addGroup">+ Add Group</button>
-          </div>
-          <p class="hint" data-i18n="settings.groups.hint">Group multiple models under one API key for easier management</p>
-        </div>
-
-        <div class="section">
-          <div id="groups-list" class="groups-list">
-            <div class="groups-empty">
-              <p data-i18n="settings.groups.empty">No groups yet. Create your first group!</p>
-            </div>
+      <div class="section">
+        <div id="groups-list" class="groups-list">
+          <div class="groups-empty">
+            <p data-i18n="settings.groups.empty">No groups yet. Create your first group!</p>
           </div>
         </div>
       </div>
 
-      <!-- General Tab -->
-      <div id="settings-tab-general" class="settings-tab-content">
-        <div class="section">
-          <h3 data-i18n="settings.general.title">General Settings</h3>
-
-          <label data-i18n="settings.general.language">Language:</label>
-          <select id="settings-language-select">
-            <option value="en">English</option>
-            <option value="ru">Русский</option>
-            <option value="ja">日本語</option>
-            <option value="zh">中文</option>
-            <option value="fr">Français</option>
-          </select>
-
-          <label data-i18n="settings.general.theme">Theme:</label>
-          <select id="settings-theme-select">
-            <option value="auto" data-i18n="settings.theme.auto">Auto</option>
-            <option value="light" data-i18n="settings.theme.light">Light</option>
-            <option value="dark" data-i18n="settings.theme.dark">Dark</option>
-          </select>
-        </div>
-
-        <!-- Proxy Settings -->
-        <div class="section">
-          <h4>Proxy Server</h4>
-          <p class="hint">By default, requests go through proxy.uixray.tech. You can specify your own proxy URL.</p>
-          <select id="settings-proxy-mode">
-            <option value="default">Default proxy (proxy.uixray.tech)</option>
-            <option value="custom">Custom proxy URL</option>
-            <option value="none">Direct connection (no proxy)</option>
-          </select>
-          <div id="custom-proxy-group" style="display: none; margin-top: 8px;">
-            <input type="text" id="settings-custom-proxy-url" placeholder="https://your-proxy.example.com">
-            <p class="hint">Your proxy must support the same API routes as the default proxy (e.g. /api/openai, /api/claude)</p>
-          </div>
-        </div>
-
-        <!-- Export/Import Section -->
-        <div class="section">
-          <h4 data-i18n="settings.exportImport.title">Backup & Restore</h4>
-          <p class="hint" data-i18n="settings.exportImport.hint">Export your settings to a file or import from a backup</p>
-
-          <div class="export-import-buttons">
-            <button id="export-settings-btn" class="btn-secondary" data-i18n="settings.export">📥 Export Settings</button>
-            <button id="import-settings-btn" class="btn-secondary" data-i18n="settings.import">📤 Import Settings</button>
-          </div>
-          <input type="file" id="import-settings-input" accept=".json" style="display: none;">
+      <!-- Proxy Settings -->
+      <div class="section">
+        <h4>Proxy Server</h4>
+        <p class="hint">By default, requests go through proxy.uixray.tech. You can specify your own proxy URL.</p>
+        <select id="settings-proxy-mode">
+          <option value="default">Default proxy (proxy.uixray.tech)</option>
+          <option value="custom">Custom proxy URL</option>
+          <option value="none">Direct connection (no proxy)</option>
+        </select>
+        <div id="custom-proxy-group" style="display: none; margin-top: 8px;">
+          <input type="text" id="settings-custom-proxy-url" placeholder="https://your-proxy.example.com">
+          <p class="hint">Your proxy must support the same API routes as the default proxy (e.g. /api/openai, /api/claude)</p>
         </div>
       </div>
+
+      <!-- Export/Import Section -->
+      <div class="section">
+        <h4 data-i18n="settings.exportImport.title">Backup & Restore</h4>
+        <div class="export-import-buttons">
+          <button id="export-settings-btn" class="btn-secondary" data-i18n="settings.export">📥 Export</button>
+          <button id="import-settings-btn" class="btn-secondary" data-i18n="settings.import">📤 Import</button>
+        </div>
+        <input type="file" id="import-settings-input" accept=".json" style="display: none;">
+      </div>
+
+      <!-- Hidden selects kept for SettingsPanel.ts compatibility -->
+      <select id="settings-language-select" style="display:none;"></select>
+      <select id="settings-theme-select" style="display:none;"></select>
 
       <div class="actions">
         <button id="save-settings-btn" class="btn-primary" data-i18n="settings.save">Save Settings</button>
@@ -182,7 +152,7 @@
 
     <!-- Data Panel -->
     <div id="data-panel" class="panel">
-      <!-- Выбор пресета -->
+      <!-- Выбор пресета + Apply (вверху) -->
       <div class="section">
         <label data-i18n="data.activePreset">Active Preset:</label>
         <div class="preset-selector">
@@ -192,6 +162,14 @@
           <button id="new-preset-btn" class="btn-secondary" data-i18n="data.newPreset">+ New</button>
           <button id="edit-preset-btn" class="btn-secondary" style="display: none;" data-i18n="settings.card.edit">Edit</button>
         </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <button id="apply-substitution-btn" class="btn-primary" disabled data-i18n="generate.apply" style="flex:1;">
+            Apply to Selection
+          </button>
+          <button id="export-preset-btn" class="btn-secondary" disabled data-i18n="data.exportPreset" title="Export preset">📥</button>
+          <button id="import-preset-btn" class="btn-secondary" data-i18n="data.importPreset" title="Import preset">📤</button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
       </div>
 
       <!-- Просмотр групп (карточки) -->
@@ -222,34 +200,13 @@
         <div id="preset-values-container">
           <!-- Динамически добавляемые группы -->
         </div>
-        <button id="add-group-btn" class="btn-secondary" data-i18n="data.addGroup">+ Add Group</button>
+        <button id="data-add-group-btn" class="btn-secondary" data-i18n="data.addGroup">+ Add Group</button>
 
         <div class="button-group">
           <button id="save-preset-btn" class="btn-primary" data-i18n="modal.save">Save</button>
           <button id="delete-preset-btn" class="btn-danger" data-i18n="modal.delete">Delete</button>
           <button id="cancel-edit-btn" class="btn-secondary" data-i18n="modal.cancel">Cancel</button>
         </div>
-      </div>
-
-      <!-- Применение -->
-      <div class="section">
-        <button id="apply-substitution-btn" class="btn-primary" disabled data-i18n="generate.apply">
-          Apply to Selection
-        </button>
-      </div>
-
-      <!-- Импорт/Экспорт -->
-      <div class="section">
-        <h4 data-i18n="data.importExport">Import/Export</h4>
-        <div class="button-group">
-          <button id="export-preset-btn" class="btn-secondary" disabled data-i18n="data.exportPreset">
-            Export Preset
-          </button>
-          <button id="import-preset-btn" class="btn-secondary" data-i18n="data.importPreset">
-            Import Preset
-          </button>
-        </div>
-        <input type="file" id="import-file-input" accept=".json" style="display: none;">
       </div>
     </div>
 

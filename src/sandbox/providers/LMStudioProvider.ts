@@ -24,7 +24,9 @@ export class LMStudioProvider extends OpenAIProvider {
     if (!this.userConfig.customUrl) {
       throw new Error('LM Studio requires Custom URL. Please edit the provider in Settings and specify your local server address (e.g., http://127.0.0.1:1234).');
     }
-    return this.userConfig.customUrl;
+    // LM Studio API is always at /v1 — append it if not already present
+    const base = this.userConfig.customUrl.replace(/\/+$/, '');
+    return base.endsWith('/v1') ? base : `${base}/v1`;
   }
 
   protected buildRequestBody(prompt: string, settings: GenerationSettings): any {

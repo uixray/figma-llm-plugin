@@ -28,14 +28,6 @@ export class SettingsPanel {
    * Настройка обработчиков событий
    */
   private setupEventListeners(): void {
-    // Settings Tabs
-    document.querySelectorAll('.settings-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        const tabName = (tab as HTMLElement).dataset.tab;
-        if (tabName) this.switchSettingsTab(tabName);
-      });
-    });
-
     // Кнопка "Add Group" (V2.1)
     document.getElementById('add-group-btn')?.addEventListener('click', () => {
       this.showGroupEditor(null);
@@ -133,21 +125,6 @@ export class SettingsPanel {
     }
 
     this.persistSettings();
-  }
-
-  /**
-   * Переключение между табами настроек
-   */
-  private switchSettingsTab(tabName: string): void {
-    // Переключаем активный таб
-    document.querySelectorAll('.settings-tab').forEach((tab) => {
-      tab.classList.toggle('active', (tab as HTMLElement).dataset.tab === tabName);
-    });
-
-    // Переключаем контент
-    document.querySelectorAll('.settings-tab-content').forEach((content) => {
-      content.classList.toggle('active', content.id === `settings-tab-${tabName}`);
-    });
   }
 
   /**
