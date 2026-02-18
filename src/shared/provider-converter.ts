@@ -16,12 +16,20 @@ export function convertGroupToLegacyConfigs(group: ProviderGroup): UserProviderC
       continue;
     }
 
+    // For LM Studio: use group.customUrl
+    // For "other" custom providers: use model.customUrl
+    // For all others: use model.customUrl (if any override)
+    const resolvedCustomUrl =
+      group.baseProviderId === 'lmstudio' ? group.customUrl :
+      group.baseProviderId === 'other' ? model.customUrl :
+      model.customUrl;
+
     const config: UserProviderConfig = {
       id: model.id, // Use model.id as providerId
       baseConfigId: model.baseConfigId,
       name: model.name,
       apiKey: group.baseProviderId === 'lmstudio' ? 'not-required' : group.sharedApiKey,
-      customUrl: group.baseProviderId === 'lmstudio' ? group.customUrl : model.customUrl,
+      customUrl: resolvedCustomUrl,
       folderId: group.folderId,
       modelName: model.modelName,
       customPricing: model.customPricing,

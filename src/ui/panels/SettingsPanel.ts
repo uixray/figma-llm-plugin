@@ -679,7 +679,7 @@ export class SettingsPanel {
 
     if (!name) { this.showError('Please enter a group name'); return; }
     if (!provider) { this.showError('Please select a provider'); return; }
-    if (!apiKey && provider !== 'lmstudio') { this.showError('Please enter an API key'); return; }
+    if (!apiKey && provider !== 'lmstudio' && provider !== 'other') { this.showError('Please enter an API key'); return; }
     if (!customUrl && provider === 'lmstudio') { this.showError('LM Studio requires Local Server URL'); return; }
 
     let modelConfigs: ModelConfig[];

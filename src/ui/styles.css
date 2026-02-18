@@ -30,6 +30,7 @@ body {
 
 .tab {
   flex: 1;
+  display: block;
   padding: 10px 6px;
   border: none;
   background: transparent;
@@ -41,6 +42,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  line-height: normal;
 }
 
 .tab:hover {
@@ -112,6 +114,12 @@ button {
   transition: all 0.2s;
   color: var(--figma-color-text);
   background: var(--figma-color-bg-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  vertical-align: middle;
+  line-height: 1;
 }
 
 .btn-primary {

@@ -87,9 +87,14 @@ export class ApiClient {
       // LM Studio ТРЕБУЕТ customUrl (адрес локального сервера)
       if (!userConfig.customUrl) {
         throw new Error(
-          'LM Studio requires Custom URL. Please edit the provider in Settings and specify your local server address (default: http://127.0.0.1:1234).'
+          '🖥️ LM Studio requires a server URL.\n' +
+          'Go to Settings → edit your LM Studio group → enter your local server address.\n' +
+          'Default: http://127.0.0.1:1234\n' +
+          'Make sure LM Studio is running and the server is started.'
         );
       }
+
+      console.log('[ApiClient] LM Studio URL:', userConfig.customUrl);
 
       const legacyConfig: LMStudioConfig = {
         enabled: userConfig.enabled,
