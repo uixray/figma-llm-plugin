@@ -147,6 +147,21 @@
           </select>
         </div>
 
+        <!-- Proxy Settings -->
+        <div class="section">
+          <h4>Proxy Server</h4>
+          <p class="hint">By default, requests go through proxy.uixray.tech. You can specify your own proxy URL.</p>
+          <select id="settings-proxy-mode">
+            <option value="default">Default proxy (proxy.uixray.tech)</option>
+            <option value="custom">Custom proxy URL</option>
+            <option value="none">Direct connection (no proxy)</option>
+          </select>
+          <div id="custom-proxy-group" style="display: none; margin-top: 8px;">
+            <input type="text" id="settings-custom-proxy-url" placeholder="https://your-proxy.example.com">
+            <p class="hint">Your proxy must support the same API routes as the default proxy (e.g. /api/openai, /api/claude)</p>
+          </div>
+        </div>
+
         <!-- Export/Import Section -->
         <div class="section">
           <h4 data-i18n="settings.exportImport.title">Backup & Restore</h4>
@@ -312,7 +327,7 @@
     </div>
 
     <!-- Prompts Modal (overlay, opened from Generate panel) -->
-    <div id="prompts-panel" class="modal-overlay" style="display: none;">
+    <div id="prompts-panel" class="prompts-modal-overlay" style="display: none;">
       <div class="modal-container">
         <div class="modal-header">
           <h3 data-i18n="prompts.title">Saved Prompts Library</h3>
@@ -510,6 +525,7 @@
               <option value="mistral">🌊 Mistral AI</option>
               <option value="groq">⚡ Groq</option>
               <option value="cohere">🔮 Cohere</option>
+              <option value="other">🔧 Other (Custom)</option>
             </select>
           </div>
 
@@ -536,8 +552,21 @@
             <p class="hint" data-i18n="settings.group.customUrlHint">Required for LM Studio. Default: http://127.0.0.1:1234</p>
           </div>
 
+          <!-- Custom Model Name (Other provider) -->
+          <div class="form-group" id="group-custom-model-group" style="display: none;">
+            <label>Custom API Base URL:</label>
+            <input type="text" id="group-custom-apiurl-input" placeholder="https://api.example.com/v1">
+            <p class="hint">Base URL of the OpenAI-compatible API endpoint</p>
+          </div>
+
+          <div class="form-group" id="group-custom-modelname-group" style="display: none;">
+            <label>Custom Model Name:</label>
+            <input type="text" id="group-custom-modelname-input" placeholder="my-model-name">
+            <p class="hint">Model identifier used in API requests (e.g. gpt-4o, llama-3.1-70b)</p>
+          </div>
+
           <!-- Model Selection -->
-          <div class="form-group">
+          <div class="form-group" id="group-models-section">
             <label data-i18n="settings.group.models">Select Models:</label>
             <div id="group-models-list" class="models-checkbox-list">
               <p class="hint" data-i18n="settings.group.selectProviderFirst">Select a provider first</p>

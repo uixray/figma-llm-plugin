@@ -71,6 +71,21 @@ export class SettingsPanel {
       this.handleThemeChange(theme);
     });
 
+    // Proxy Mode Selection
+    const proxyModeSelect = document.getElementById('settings-proxy-mode') as HTMLSelectElement;
+    proxyModeSelect?.addEventListener('change', (e) => {
+      const mode = (e.target as HTMLSelectElement).value;
+      const customGroup = document.getElementById('custom-proxy-group');
+      if (customGroup) customGroup.style.display = mode === 'custom' ? 'block' : 'none';
+      this.handleProxyChange(mode);
+    });
+
+    // Custom Proxy URL
+    const customProxyInput = document.getElementById('settings-custom-proxy-url') as HTMLInputElement;
+    customProxyInput?.addEventListener('change', () => {
+      this.handleProxyChange('custom');
+    });
+
     // Watch for system theme changes when in auto mode
     watchSystemTheme((systemTheme) => {
       if (this.settings?.ui?.theme === 'auto') {
@@ -99,6 +114,25 @@ export class SettingsPanel {
       type: 'save-settings',
       settings: this.settings,
     });
+  }
+
+  /**
+   * Обработчик изменения прокси
+   */
+  private handleProxyChange(mode: string): void {
+    if (!this.settings) return;
+
+    const customProxyInput = document.getElementById('settings-custom-proxy-url') as HTMLInputElement;
+
+    if (mode === 'default') {
+      this.settings.globalProxyUrl = undefined;
+    } else if (mode === 'custom') {
+      this.settings.globalProxyUrl = customProxyInput?.value.trim() || '';
+    } else if (mode === 'none') {
+      this.settings.globalProxyUrl = 'none'; // Special marker for "no proxy"
+    }
+
+    this.persistSettings();
   }
 
   /**
@@ -131,6 +165,24 @@ export class SettingsPanel {
     // Update theme selector
     const themeSelect = document.getElementById('settings-theme-select') as HTMLSelectElement;
     if (themeSelect) themeSelect.value = theme;
+
+    // Restore proxy settings
+    const proxyModeSelect = document.getElementById('settings-proxy-mode') as HTMLSelectElement;
+    const customProxyInput = document.getElementById('settings-custom-proxy-url') as HTMLInputElement;
+    const customProxyGroup = document.getElementById('custom-proxy-group');
+    if (proxyModeSelect) {
+      if (!settings.globalProxyUrl) {
+        proxyModeSelect.value = 'default';
+        if (customProxyGroup) customProxyGroup.style.display = 'none';
+      } else if (settings.globalProxyUrl === 'none') {
+        proxyModeSelect.value = 'none';
+        if (customProxyGroup) customProxyGroup.style.display = 'none';
+      } else {
+        proxyModeSelect.value = 'custom';
+        if (customProxyInput) customProxyInput.value = settings.globalProxyUrl;
+        if (customProxyGroup) customProxyGroup.style.display = 'block';
+      }
+    }
   }
 
   /**
@@ -452,6 +504,12 @@ export class SettingsPanel {
     const folderIdInput = document.getElementById('group-folderid-input') as HTMLInputElement;
     const customUrlInput = document.getElementById('group-customurl-input') as HTMLInputElement;
 
+    const customApiUrlInput = document.getElementById('group-custom-apiurl-input') as HTMLInputElement;
+    const customModelNameInput = document.getElementById('group-custom-modelname-input') as HTMLInputElement;
+    const customModelGroup = document.getElementById('group-custom-model-group');
+    const customModelNameGroup = document.getElementById('group-custom-modelname-group');
+    const modelsSection = document.getElementById('group-models-section');
+
     if (group) {
       if (nameInput) nameInput.value = group.name;
       if (providerSelect) providerSelect.value = group.baseProviderId;
@@ -464,7 +522,17 @@ export class SettingsPanel {
       }
       if (folderIdInput) folderIdInput.value = group.folderId || '';
       if (customUrlInput) customUrlInput.value = group.customUrl || '';
-      this.loadModelsForProvider(group.baseProviderId, group.modelConfigs);
+
+      // Handle "other" provider editing
+      if (group.baseProviderId === 'other' && group.modelConfigs.length > 0) {
+        const firstModel = group.modelConfigs[0];
+        if (customApiUrlInput) customApiUrlInput.value = firstModel.customUrl || '';
+        if (customModelNameInput) customModelNameInput.value = firstModel.modelName || firstModel.name || '';
+      } else {
+        if (customApiUrlInput) customApiUrlInput.value = '';
+        if (customModelNameInput) customModelNameInput.value = '';
+        this.loadModelsForProvider(group.baseProviderId, group.modelConfigs);
+      }
     } else {
       if (nameInput) nameInput.value = '';
       if (providerSelect) providerSelect.value = '';
@@ -475,9 +543,13 @@ export class SettingsPanel {
       }
       if (folderIdInput) folderIdInput.value = '';
       if (customUrlInput) customUrlInput.value = '';
+      if (customApiUrlInput) customApiUrlInput.value = '';
+      if (customModelNameInput) customModelNameInput.value = '';
       const modelsList = document.getElementById('group-models-list');
       if (modelsList) modelsList.innerHTML = '<p class="hint">Select a provider first</p>';
     }
+
+    const isOther = providerSelect?.value === 'other';
 
     // Folder ID только для Yandex
     const folderIdGroup = document.getElementById('group-folderid-group');
@@ -486,6 +558,11 @@ export class SettingsPanel {
     // Custom URL только для LM Studio
     const customUrlGroup = document.getElementById('group-customurl-group');
     if (customUrlGroup) customUrlGroup.style.display = (providerSelect?.value === 'lmstudio') ? 'block' : 'none';
+
+    // Custom model fields for "Other" provider
+    if (customModelGroup) customModelGroup.style.display = isOther ? 'block' : 'none';
+    if (customModelNameGroup) customModelNameGroup.style.display = isOther ? 'block' : 'none';
+    if (modelsSection) modelsSection.style.display = isOther ? 'none' : 'block';
 
     // Обработчик изменения провайдера
     const boundProviderChange = this.handleProviderChange.bind(this);
@@ -517,9 +594,26 @@ export class SettingsPanel {
     const provider = select.value;
     const folderIdGroup = document.getElementById('group-folderid-group');
     const customUrlGroup = document.getElementById('group-customurl-group');
+    const customModelGroup = document.getElementById('group-custom-model-group');
+    const customModelNameGroup = document.getElementById('group-custom-modelname-group');
+    const modelsSection = document.getElementById('group-models-section');
+
     if (folderIdGroup) folderIdGroup.style.display = (provider === 'yandex') ? 'block' : 'none';
     if (customUrlGroup) customUrlGroup.style.display = (provider === 'lmstudio') ? 'block' : 'none';
-    if (provider) this.loadModelsForProvider(provider, []);
+
+    // "Other" provider: show custom URL + model name fields, hide models checklist
+    const isOther = provider === 'other';
+    if (customModelGroup) customModelGroup.style.display = isOther ? 'block' : 'none';
+    if (customModelNameGroup) customModelNameGroup.style.display = isOther ? 'block' : 'none';
+    if (modelsSection) modelsSection.style.display = isOther ? 'none' : 'block';
+
+    if (provider && provider !== 'other') {
+      this.loadModelsForProvider(provider, []);
+    } else if (provider === 'other') {
+      const modelsList = document.getElementById('group-models-list');
+      if (modelsList) modelsList.innerHTML = '';
+      this.updateModelCount();
+    }
   }
 
   private loadModelsForProvider(providerId: string, selectedModels: ModelConfig[]): void {
@@ -572,6 +666,8 @@ export class SettingsPanel {
     const apiKeyInput = document.getElementById('group-apikey-input') as HTMLInputElement;
     const folderIdInput = document.getElementById('group-folderid-input') as HTMLInputElement;
     const customUrlInput = document.getElementById('group-customurl-input') as HTMLInputElement;
+    const customApiUrlInput = document.getElementById('group-custom-apiurl-input') as HTMLInputElement;
+    const customModelNameInput = document.getElementById('group-custom-modelname-input') as HTMLInputElement;
 
     const name = nameInput?.value.trim();
     const provider = providerSelect?.value;
@@ -586,19 +682,41 @@ export class SettingsPanel {
     if (!apiKey && provider !== 'lmstudio') { this.showError('Please enter an API key'); return; }
     if (!customUrl && provider === 'lmstudio') { this.showError('LM Studio requires Local Server URL'); return; }
 
-    const checkboxes = document.querySelectorAll('#group-models-list input[type="checkbox"]:checked');
-    const selectedModelIds = Array.from(checkboxes).map(cb => (cb as HTMLInputElement).value);
-    if (selectedModelIds.length === 0) { this.showError('Please select at least one model'); return; }
+    let modelConfigs: ModelConfig[];
 
-    const modelConfigs: ModelConfig[] = selectedModelIds.map(baseConfigId => ({
-      id: generateUniqueId(),
-      baseConfigId,
-      name: PROVIDER_CONFIGS.find(p => p.id === baseConfigId)?.name || baseConfigId,
-      enabled: true,
-    }));
+    if (provider === 'other') {
+      // Custom "Other" provider — user specifies API URL and model name
+      const customApiUrl = customApiUrlInput?.value.trim();
+      const customModelName = customModelNameInput?.value.trim();
+
+      if (!customApiUrl) { this.showError('Please enter a Custom API Base URL'); return; }
+      if (!customModelName) { this.showError('Please enter a Custom Model Name'); return; }
+
+      // Create a single model config for the custom provider
+      modelConfigs = [{
+        id: existingGroup?.modelConfigs[0]?.id || generateUniqueId(),
+        baseConfigId: 'other-custom', // Special marker for custom providers
+        name: customModelName,
+        enabled: true,
+        customUrl: customApiUrl,
+        modelName: customModelName,
+      }];
+    } else {
+      const checkboxes = document.querySelectorAll('#group-models-list input[type="checkbox"]:checked');
+      const selectedModelIds = Array.from(checkboxes).map(cb => (cb as HTMLInputElement).value);
+      if (selectedModelIds.length === 0) { this.showError('Please select at least one model'); return; }
+
+      modelConfigs = selectedModelIds.map(baseConfigId => ({
+        id: generateUniqueId(),
+        baseConfigId,
+        name: PROVIDER_CONFIGS.find(p => p.id === baseConfigId)?.name || baseConfigId,
+        enabled: true,
+      }));
+    }
 
     if (existingGroup) {
       existingGroup.name = name;
+      existingGroup.baseProviderId = provider;
       existingGroup.sharedApiKey = apiKey;
       existingGroup.folderId = folderId || undefined;
       existingGroup.customUrl = customUrl || undefined;
@@ -788,6 +906,7 @@ export class SettingsPanel {
     const icons: Record<string, string> = {
       lmstudio: '🖥️', openai: '🤖', claude: '🧠', gemini: '✨',
       yandex: '🇷🇺', mistral: '🌊', groq: '⚡', cohere: '🔮',
+      other: '🔧',
     };
     return icons[providerId] || '🔌';
   }
@@ -799,7 +918,7 @@ export class SettingsPanel {
     const labels: Record<string, string> = {
       lmstudio: 'LM Studio (Local)', openai: 'OpenAI', claude: 'Claude (Anthropic)',
       gemini: 'Google Gemini', yandex: 'Yandex GPT', mistral: 'Mistral AI',
-      groq: 'Groq', cohere: 'Cohere',
+      groq: 'Groq', cohere: 'Cohere', other: 'Custom Provider',
     };
     return labels[providerId] || providerId;
   }

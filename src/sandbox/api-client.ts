@@ -58,7 +58,22 @@ export class ApiClient {
     console.log('[ApiClient] Using base config:', baseConfigId);
 
     // Находим конфиг провайдера в PROVIDER_CONFIGS
-    const providerConfig = PROVIDER_CONFIGS.find(p => p.id === baseConfigId);
+    let providerConfig = PROVIDER_CONFIGS.find(p => p.id === baseConfigId);
+
+    // Handle custom "Other" provider (not in PROVIDER_CONFIGS)
+    if (!providerConfig && baseConfigId === 'other-custom') {
+      providerConfig = {
+        id: 'other-custom',
+        name: userConfig.modelName || 'Custom Model',
+        provider: 'other',
+        description: 'User-defined custom provider',
+        model: userConfig.modelName || 'custom-model',
+        apiUrl: userConfig.customUrl || '',
+        requiresProxy: false,
+        pricing: { input: 0, output: 0 },
+      };
+    }
+
     if (!providerConfig) {
       console.error('[ApiClient] Provider config not found:', baseConfigId);
       throw new Error(`Provider config not found: ${baseConfigId}`);
@@ -103,11 +118,49 @@ export class ApiClient {
       };
       return this.generateWithYandex(request, legacyConfig);
     } else if (['openai', 'claude', 'gemini', 'mistral', 'groq', 'cohere'].includes(providerConfig.provider)) {
+      // Resolve API URL: user custom URL > global proxy override > default provider URL
+      let resolvedApiUrl = userConfig.customUrl || providerConfig.apiUrl;
+
+      // Apply global proxy setting if available
+      if (!userConfig.customUrl && settings.globalProxyUrl) {
+        if (settings.globalProxyUrl === 'none') {
+          // Direct connection — strip proxy prefix, use provider's native API
+          // Only if the default URL is a proxy URL
+          resolvedApiUrl = providerConfig.apiUrl;
+        } else {
+          // Custom proxy — replace proxy.uixray.tech with user's proxy
+          resolvedApiUrl = providerConfig.apiUrl.replace(
+            'https://proxy.uixray.tech',
+            settings.globalProxyUrl.replace(/\/$/, '')
+          );
+        }
+      }
+
       const legacyConfig: OpenAICompatibleConfig = {
         enabled: userConfig.enabled,
         apiKey: userConfig.apiKey,
-        apiUrl: userConfig.customUrl || providerConfig.apiUrl,
+        apiUrl: resolvedApiUrl,
         model: providerConfig.model,
+      };
+      return this.generateWithOpenAI(request, legacyConfig);
+    } else if (providerConfig.provider === 'other' || baseConfigId === 'other-custom') {
+      // Custom "Other" provider — uses OpenAI-compatible API
+      const customApiUrl = userConfig.customUrl;
+      const customModel = userConfig.modelName || 'custom-model';
+
+      if (!customApiUrl) {
+        throw new Error(
+          'Custom provider requires API Base URL. Please edit the provider group in Settings and specify the API endpoint.'
+        );
+      }
+
+      console.log('[ApiClient] Custom provider:', customApiUrl, 'model:', customModel);
+
+      const legacyConfig: OpenAICompatibleConfig = {
+        enabled: userConfig.enabled,
+        apiKey: userConfig.apiKey,
+        apiUrl: customApiUrl,
+        model: customModel,
       };
       return this.generateWithOpenAI(request, legacyConfig);
     }

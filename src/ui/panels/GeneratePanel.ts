@@ -106,7 +106,11 @@ export class GeneratePanel {
       const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
       const opt = document.createElement('option');
       opt.value = config.id;
-      opt.textContent = `${this.getProviderIcon(baseConfig?.provider || '')} ${config.name}`;
+      // For "other" custom providers, use the model name directly
+      const icon = baseConfig
+        ? this.getProviderIcon(baseConfig.provider)
+        : this.getProviderIcon('other');
+      opt.textContent = `${icon} ${config.name}`;
       this.providerSelect.appendChild(opt);
     });
 
@@ -130,6 +134,7 @@ export class GeneratePanel {
       groq: '⚡',
       cohere: '🧠',
       lmstudio: '💻',
+      other: '🔧',
     };
     return icons[provider] || '';
   }
