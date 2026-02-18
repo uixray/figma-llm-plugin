@@ -1,7 +1,7 @@
 {
-  "name": "figma-llm-text-generator",
-  "version": "2.0.0",
-  "description": "UText - AI-powered text generation for Figma with 30+ LLM providers, mass layer renaming, and design automation",
+  "name": "utext-figma-plugin",
+  "version": "2.1.0",
+  "description": "UText - AI-powered text generation plugin for Figma. Supports 30+ LLM models (OpenAI, Claude, Gemini, Mistral, Groq, LM Studio, etc.), mass layer renaming, prompt library, and design automation.",
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -10,11 +10,16 @@
   "keywords": [
     "figma",
     "plugin",
-    "llm",
     "ai",
-    "text-generation"
+    "text-generation",
+    "utext",
+    "openai",
+    "claude",
+    "gemini",
+    "lm-studio",
+    "design-tools"
   ],
-  "author": "",
+  "author": "UIXRay",
   "license": "MIT",
   "devDependencies": {
     "@figma/plugin-typings": "^1.95.0",

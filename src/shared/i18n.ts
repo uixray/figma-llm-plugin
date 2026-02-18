@@ -917,11 +917,11 @@ export const translations: Translations = {
 
   // Welcome / First-run screen
   'welcome.title': {
-    en: 'Welcome to Figma LLM Plugin',
-    ru: 'Добро пожаловать в Figma LLM плагин',
-    ja: 'Figma LLMプラグインへようこそ',
-    zh: '欢迎使用 Figma LLM 插件',
-    fr: 'Bienvenue dans le plugin Figma LLM',
+    en: 'Welcome to UText',
+    ru: 'Добро пожаловать в UText',
+    ja: 'UText へようこそ',
+    zh: '欢迎使用 UText',
+    fr: 'Bienvenue dans UText',
   },
   'welcome.subtitle': {
     en: 'Choose your preferred language',
@@ -1841,11 +1841,11 @@ export const translations: Translations = {
     fr: 'Menu des actions rapides',
   },
   'help.quickActions.desc': {
-    en: 'Access fast preset application via: Plugins → LLM Text Generator',
-    ru: 'Быстрый доступ через: Плагины → LLM Text Generator',
-    ja: 'プラグイン → LLM Text Generator から素早くアクセス',
-    zh: '通过以下路径快速访问：插件 → LLM Text Generator',
-    fr: 'Accès rapide via : Plugins → LLM Text Generator',
+    en: 'Access fast preset application via: Plugins → UText',
+    ru: 'Быстрый доступ через: Плагины → UText',
+    ja: 'プラグイン → UText から素早くアクセス',
+    zh: '通过以下路径快速访问：插件 → UText',
+    fr: 'Accès rapide via : Plugins → UText',
   },
   'help.quickActions.items': {
     en: '<li><strong>Built-in Presets</strong> - Instant application of User/Product/Place/Other templates</li><li><strong>Apply Custom Preset</strong> - Choose from your saved presets</li><li><strong>Rename Layers by Content</strong> - Auto-rename layers based on their text content</li>',
@@ -1911,11 +1911,11 @@ export const translations: Translations = {
     fr: '<li>Utilisez des noms de champs simples et clairs (name, title, price)</li><li>Définissez le séparateur multi-valeurs pour les champs combinés</li><li>Créez plusieurs groupes pour le traitement par lots</li><li>Les groupes s\'appliquent de manière cyclique si vous avez plus de composants que de groupes</li>',
   },
   'help.llm.title': {
-    en: '🤖 LLM Text Generation',
-    ru: '🤖 Генерация текста LLM',
-    ja: '🤖 LLMテキスト生成',
-    zh: '🤖 LLM 文本生成',
-    fr: '🤖 Génération de texte LLM',
+    en: '🤖 AI Text Generation',
+    ru: '🤖 Генерация текста ИИ',
+    ja: '🤖 AIテキスト生成',
+    zh: '🤖 AI 文本生成',
+    fr: '🤖 Génération de texte IA',
   },
   'help.llm.desc': {
     en: 'Generate creative text content using AI language models.',

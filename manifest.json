@@ -1,6 +1,6 @@
 {
   "name": "UText - AI Text Generator",
-  "id": "llm-text-generator",
+  "id": "utext-ai-text-generator",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
@@ -69,12 +69,21 @@
     "allowedDomains": [
       "https://proxy.uixray.tech",
       "https://api.openai.com",
-      "https://*.openai.azure.com"
+      "https://*.openai.azure.com",
+      "https://api.anthropic.com",
+      "https://generativelanguage.googleapis.com",
+      "https://api.mistral.ai",
+      "https://api.groq.com",
+      "https://api.cohere.ai",
+      "https://llm.api.cloud.yandex.net",
+      "http://localhost:1234",
+      "http://127.0.0.1:1234",
+      "http://0.0.0.0:1234"
     ],
     "devAllowedDomains": [
-      "http://localhost:1234"
+      "*"
     ],
-    "reasoning": "Required for communication with LLM providers via proxy (Yandex Cloud) and direct APIs (OpenAI-compatible)"
+    "reasoning": "Required for communication with LLM providers: default proxy (proxy.uixray.tech), direct APIs (OpenAI, Anthropic, Google, Mistral, Groq, Cohere, Yandex), and local LM Studio servers. Dev mode allows all domains for custom proxy URLs and non-standard LM Studio addresses."
   },
   "permissions": [],
   "documentAccess": "dynamic-page"
