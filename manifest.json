@@ -67,23 +67,9 @@
   ],
   "networkAccess": {
     "allowedDomains": [
-      "https://proxy.uixray.tech",
-      "https://api.openai.com",
-      "https://*.openai.azure.com",
-      "https://api.anthropic.com",
-      "https://generativelanguage.googleapis.com",
-      "https://api.mistral.ai",
-      "https://api.groq.com",
-      "https://api.cohere.ai",
-      "https://llm.api.cloud.yandex.net",
-      "http://localhost:1234",
-      "http://127.0.0.1:1234",
-      "http://0.0.0.0:1234"
-    ],
-    "devAllowedDomains": [
       "*"
     ],
-    "reasoning": "Required for communication with LLM providers: default proxy (proxy.uixray.tech), direct APIs (OpenAI, Anthropic, Google, Mistral, Groq, Cohere, Yandex), and local LM Studio servers. Dev mode allows all domains for custom proxy URLs and non-standard LM Studio addresses."
+    "reasoning": "UText connects to various LLM providers (OpenAI, Anthropic, Google, Mistral, Groq, Cohere, Yandex Cloud) via a configurable proxy, and also supports local LM Studio servers at user-defined addresses (e.g. http://192.168.x.x:1234). Wildcard is required because local server IPs are user-defined and cannot be enumerated in advance."
   },
   "permissions": [],
   "documentAccess": "dynamic-page"
