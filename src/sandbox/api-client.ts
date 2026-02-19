@@ -96,10 +96,16 @@ export class ApiClient {
 
       console.log('[ApiClient] LM Studio URL:', userConfig.customUrl);
 
+      // Append /v1 if not already present (LM Studio API is always at /v1)
+      const lmBaseUrl = (() => {
+        const base = (userConfig.customUrl || '').replace(/\/+$/, '');
+        return base.endsWith('/v1') ? base : `${base}/v1`;
+      })();
+
       const legacyConfig: LMStudioConfig = {
         enabled: userConfig.enabled,
         apiKey: userConfig.apiKey || 'not-required', // LM Studio не требует API ключ
-        apiUrl: userConfig.customUrl,
+        baseUrl: lmBaseUrl,
       };
       return this.generateWithLMStudio(request, legacyConfig);
     } else if (providerConfig.provider === 'yandex') {
