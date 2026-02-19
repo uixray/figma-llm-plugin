@@ -1343,11 +1343,19 @@ class PluginSandbox {
    */
   private async handleApplyDataSubstitution(message: any): Promise<void> {
     try {
-      // Загрузить пресеты
-      const settings = await this.storageManager.loadDataPresets();
-      const preset = settings.presets.find(function (p) {
-        return p.id === message.presetId;
-      });
+      // Check built-in presets first (they are never stored in clientStorage)
+      const builtInKey = message.presetId.startsWith('built-in-')
+        ? message.presetId.replace('built-in-', '')
+        : null;
+      let preset: DataPreset | undefined = builtInKey ? BUILT_IN_PRESETS[builtInKey] : undefined;
+
+      // Fall back to user presets in storage
+      if (!preset) {
+        const settings = await this.storageManager.loadDataPresets();
+        preset = settings.presets.find(function (p) {
+          return p.id === message.presetId;
+        });
+      }
 
       if (!preset) {
         throw new Error('Preset not found');
