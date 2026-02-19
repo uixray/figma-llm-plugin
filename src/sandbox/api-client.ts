@@ -339,28 +339,27 @@ export class ApiClient {
   /**
    * Обработка не-streaming ответа от Yandex Cloud
    * Формат ответа отличается от OpenAI
+   * NOTE: Figma plugin sandbox fetch() may not expose response.headers.
    */
   private async handleYandexNonStreamingResponse(
     response: Response,
     onChunk: (chunk: string, tokens: number) => void
   ): Promise<void> {
-    const contentType = response.headers.get('Content-Type') || '';
-
-    // Проверяем Content-Type перед парсингом JSON
-    if (!contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('[ApiClient] Yandex unexpected Content-Type:', contentType);
-      console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
-      throw new Error(`Expected JSON response but received ${contentType}. Check Yandex API key and folder ID.`);
+    if (response.headers && typeof response.headers.get === 'function') {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('[ApiClient] Yandex unexpected Content-Type:', contentType);
+        console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
+        throw new Error(`Expected JSON response but received ${contentType}. Check Yandex API key and folder ID.`);
+      }
     }
 
     let data;
     try {
       data = await response.json();
-    } catch (e) {
-      const text = await response.text();
+    } catch (e: any) {
       console.error('[ApiClient] Yandex JSON parse error:', e);
-      console.error('[ApiClient] Response text:', text.substring(0, 200));
       throw new Error(`Failed to parse Yandex JSON response: ${e.message}`);
     }
 
@@ -518,29 +517,30 @@ export class ApiClient {
 
   /**
    * Обработка не-streaming ответа
+   * NOTE: Figma plugin sandbox fetch() returns a stripped Response — response.headers
+   * and response.body may be undefined. Skip Content-Type check and go straight to json().
    */
   private async handleNonStreamingResponse(
     response: Response,
     onChunk: (chunk: string, tokens: number) => void
   ): Promise<void> {
-    const contentType = response.headers.get('Content-Type') || '';
-
-    // Проверяем Content-Type перед парсингом JSON
-    if (!contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('[ApiClient] Unexpected Content-Type:', contentType);
-      console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
-      throw new Error(`Expected JSON response but received ${contentType}. Check API URL and key. Response starts with: ${text.substring(0, 100)}`);
+    // Try Content-Type check only when headers are available (not in Figma sandbox)
+    if (response.headers && typeof response.headers.get === 'function') {
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('[ApiClient] Unexpected Content-Type:', contentType);
+        console.error('[ApiClient] Response text (first 200 chars):', text.substring(0, 200));
+        throw new Error(`Expected JSON response but received ${contentType}. Check API URL and key. Response starts with: ${text.substring(0, 100)}`);
+      }
     }
 
     let data;
     try {
       data = await response.json();
-    } catch (e) {
-      const text = await response.text();
+    } catch (e: any) {
       console.error('[ApiClient] JSON parse error:', e);
-      console.error('[ApiClient] Response text:', text.substring(0, 200));
-      throw new Error(`Failed to parse JSON response: ${e.message}. Response: ${text.substring(0, 100)}`);
+      throw new Error(`Failed to parse JSON response: ${e.message}. Check that the provider URL is correct and returns JSON.`);
     }
 
     const content = data.choices?.[0]?.message?.content;
