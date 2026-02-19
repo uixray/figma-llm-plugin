@@ -94,6 +94,11 @@ select {
   margin-bottom: 8px;
 }
 
+/* Give native select arrow enough room so it doesn't overlap the text */
+select {
+  padding-right: 28px;
+}
+
 textarea {
   resize: vertical;
   min-height: 60px;

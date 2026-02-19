@@ -537,6 +537,12 @@ class PluginSandbox {
         success: true,
       });
 
+      // Notify UI to refresh provider dropdown and other live elements
+      sendToUI({
+        type: 'settings-updated',
+        settings: message.settings,
+      });
+
       sendToUI({
         type: 'notification',
         level: 'success',
