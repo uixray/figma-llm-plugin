@@ -401,11 +401,8 @@ class PluginUI {
     // Apply language to i18n system
     i18n.changeLanguage(lang);
 
-    // Update the help language dropdown
-    const helpLangSelect = document.getElementById('help-language-select') as HTMLSelectElement;
-    if (helpLangSelect) {
-      helpLangSelect.value = lang;
-    }
+    // Re-render help panel to update all template-based translations
+    this.helpPanel.rerender();
 
     // Persist language in settings
     if (this.settings) {

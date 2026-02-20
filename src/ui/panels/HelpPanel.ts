@@ -82,14 +82,35 @@ export class HelpPanel {
       mainLangSelect.value = lang;
     }
 
-    // Trigger full UI update immediately
+    // Trigger full UI update for data-i18n elements
     i18n.updateAll();
+
+    // Re-render help panel to update all t() template strings
+    this.rerender();
 
     // Save to settings
     sendToSandbox({
       type: 'update-language',
       language: lang,
     });
+  }
+
+  /**
+   * Re-render the help panel preserving accordion states and preferences
+   */
+  public rerender(): void {
+    const savedAccordions = new Map(this.accordions);
+    this.render();
+    this.setupEventListeners();
+    this.loadPreferences();
+
+    // Restore open accordion states
+    for (const [sectionId, isOpen] of savedAccordions) {
+      if (isOpen) {
+        this.accordions.set(sectionId, false);
+        this.toggleAccordion(sectionId);
+      }
+    }
   }
 
   /**

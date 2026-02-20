@@ -290,7 +290,7 @@ export interface DataPresetSettings {
 }
 
 /**
- * Дефолтные пресеты при первом запуске
+ * Default data presets for first launch
  */
 export const DEFAULT_DATA_PRESETS: DataPresetSettings = {
   presets: [
@@ -302,24 +302,24 @@ export const DEFAULT_DATA_PRESETS: DataPresetSettings = {
       groups: [
         {
           id: 'user-1',
-          name: 'Иван Иванов',
+          name: 'John Smith',
           type: 'user',
           values: {
-            '#name': 'Иван Иванов',
-            '#phone': '+7 (999) 123-45-67',
-            '#email': 'ivan@example.com',
-            '#company': 'ООО "Рога и Копыта"',
+            '#name': 'John Smith',
+            '#phone': '+1 (555) 123-4567',
+            '#email': 'john@example.com',
+            '#company': 'Acme Corporation',
           },
         },
         {
           id: 'user-2',
-          name: 'Мария Петрова',
+          name: 'Sarah Johnson',
           type: 'user',
           values: {
-            '#name': 'Мария Петрова',
-            '#phone': '+7 (999) 987-65-43',
-            '#email': 'maria@example.com',
-            '#company': 'ИП Петрова М.А.',
+            '#name': 'Sarah Johnson',
+            '#phone': '+1 (555) 987-6543',
+            '#email': 'sarah@example.com',
+            '#company': 'Johnson Design Studio',
           },
         },
       ],
@@ -338,8 +338,8 @@ export const DEFAULT_DATA_PRESETS: DataPresetSettings = {
           type: 'product',
           values: {
             '#product': 'iPhone 15 Pro',
-            '#price': '99 990 ₽',
-            '#description': 'Новейший флагман от Apple',
+            '#price': '$1,199',
+            '#description': 'Latest flagship by Apple',
             '#sku': 'IPHONE15PRO-256-BLK',
           },
         },
@@ -349,8 +349,8 @@ export const DEFAULT_DATA_PRESETS: DataPresetSettings = {
           type: 'product',
           values: {
             '#product': 'Samsung Galaxy S24',
-            '#price': '89 990 ₽',
-            '#description': 'Флагман от Samsung',
+            '#price': '$899',
+            '#description': 'Flagship by Samsung',
             '#sku': 'GALAXY-S24-128-WHT',
           },
         },

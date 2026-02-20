@@ -1136,6 +1136,10 @@ button {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+.modal-container {
+  overflow-y: auto;
+}
+
 .modal-container .section {
   padding: 0 16px 12px;
 }
