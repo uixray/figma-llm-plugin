@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,10 +7,10 @@
 </head>
 <body>
   <!-- First-run language selection screen -->
-  <div id="language-select-screen" style="display: none;">
+  <div id="language-select-screen" role="dialog" aria-labelledby="welcome-title" style="display: none;">
     <div class="language-select-card">
-      <div class="language-select-icon">🌐</div>
-      <h2 class="language-select-title" data-i18n="welcome.title">Welcome to UText</h2>
+      <div class="language-select-icon" aria-hidden="true">🌐</div>
+      <h2 id="welcome-title" class="language-select-title" data-i18n="welcome.title">Welcome to UText</h2>
       <p class="language-select-subtitle" data-i18n="welcome.subtitle">Choose your preferred language</p>
       <div class="language-buttons">
         <button class="language-btn" data-lang="en">
@@ -39,16 +39,16 @@
   </div>
 
   <div id="app">
-    <div class="tabs">
-      <button class="tab active" data-tab="generate" data-i18n="tab.generate">Generate</button>
-      <button class="tab" data-tab="data" data-i18n="tab.data">Data</button>
-      <button class="tab" data-tab="rename" data-i18n="tab.rename">Rename</button>
-      <button class="tab" data-tab="settings" data-i18n="tab.settings">Providers</button>
-      <button class="tab" data-tab="help" data-i18n="tab.help">Help</button>
+    <div class="tabs" role="tablist" aria-label="Plugin sections">
+      <button class="tab active" data-tab="generate" data-i18n="tab.generate" role="tab" aria-selected="true" aria-controls="generate-panel">Generate</button>
+      <button class="tab" data-tab="data" data-i18n="tab.data" role="tab" aria-selected="false" aria-controls="data-panel">Data</button>
+      <button class="tab" data-tab="rename" data-i18n="tab.rename" role="tab" aria-selected="false" aria-controls="rename-panel">Rename</button>
+      <button class="tab" data-tab="settings" data-i18n="tab.settings" role="tab" aria-selected="false" aria-controls="settings-panel">Providers</button>
+      <button class="tab" data-tab="help" data-i18n="tab.help" role="tab" aria-selected="false" aria-controls="help-panel">Help</button>
     </div>
 
     <!-- Generate Panel -->
-    <div id="generate-panel" class="panel active">
+    <div id="generate-panel" class="panel active" role="tabpanel" aria-labelledby="tab-generate">
       <!-- Provider selector for per-request choice -->
       <div class="section">
         <div class="provider-select-row">
@@ -59,6 +59,9 @@
         </div>
       </div>
 
+      <!-- Quick Actions -->
+      <div id="quick-actions-bar" class="quick-actions-bar"></div>
+
       <div class="section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label data-i18n="generate.prompt.label">Prompt:</label>
@@ -68,11 +71,12 @@
           </div>
         </div>
         <textarea id="prompt-input" rows="4" data-i18n-placeholder="generate.prompt.placeholder" placeholder="Write your prompt — text from selected layers will be automatically included as context..."></textarea>
+        <div id="variable-chips" class="variable-chips"></div>
       </div>
 
       <div class="section collapsible">
-        <label class="collapsible-header" data-i18n="generate.advanced">Advanced ▼</label>
-        <div class="collapsible-content" style="display: none;">
+        <label class="collapsible-header" data-i18n="generate.advanced">Advanced ▲</label>
+        <div class="collapsible-content">
           <label data-i18n="generate.systemPrompt.label">System Prompt:</label>
           <textarea id="system-prompt-input" rows="3" data-i18n-placeholder="generate.systemPrompt.placeholder" placeholder="Optional system prompt..."></textarea>
 
@@ -81,6 +85,11 @@
 
           <label data-i18n="generate.maxTokens.label">Max Tokens:</label>
           <input type="number" id="max-tokens-input" value="2000" min="1" max="100000">
+
+          <label class="checkbox-label" id="vision-checkbox-label" style="display: none; margin-top: 8px;">
+            <input type="checkbox" id="attach-screenshot-checkbox">
+            <span data-i18n="generate.vision.attachScreenshot">Attach screenshot of selected frame</span>
+          </label>
         </div>
       </div>
 
@@ -92,14 +101,24 @@
       <!-- Generation status bar -->
       <div id="generation-status-section" class="section">
         <div class="output-header">
-          <span id="output-status" data-i18n="generate.output.ready">Ready</span>
-          <span id="output-tokens">0 tokens</span>
+          <span id="output-status" data-i18n="generate.output.ready" aria-live="polite">Ready</span>
+          <div class="output-header-right">
+            <button id="copy-result-btn" class="btn-icon" style="display: none;" title="Copy result (Ctrl+Shift+C)" data-i18n-title="generate.copy.tooltip">📋</button>
+            <span id="output-tokens">0 tokens</span>
+          </div>
+        </div>
+        <!-- Batch progress bar (hidden by default) -->
+        <div id="batch-progress-bar" class="batch-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch processing progress" style="display: none;">
+          <div class="batch-progress-track">
+            <div id="batch-progress-fill" class="batch-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span id="batch-progress-label" class="batch-progress-label">0%</span>
         </div>
       </div>
     </div>
 
     <!-- Providers Panel (formerly Settings) -->
-    <div id="settings-panel" class="panel">
+    <div id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings">
       <div class="section">
         <div class="settings-header">
           <h3 data-i18n="settings.groups.title">Provider Groups</h3>
@@ -137,6 +156,7 @@
         <div class="export-import-buttons">
           <button id="export-settings-btn" class="btn-secondary" data-i18n="settings.export">📥 Export</button>
           <button id="import-settings-btn" class="btn-secondary" data-i18n="settings.import">📤 Import</button>
+          <button id="reset-settings-btn" class="btn-secondary btn-danger" data-i18n="settings.reset">🔄 Reset</button>
         </div>
         <input type="file" id="import-settings-input" accept=".json" style="display: none;">
       </div>
@@ -151,7 +171,7 @@
     </div>
 
     <!-- Data Panel -->
-    <div id="data-panel" class="panel">
+    <div id="data-panel" class="panel" role="tabpanel" aria-labelledby="tab-data">
       <!-- Выбор пресета + Apply (вверху) -->
       <div class="section">
         <label data-i18n="data.activePreset">Active Preset:</label>
@@ -211,7 +231,7 @@
     </div>
 
     <!-- Rename Panel -->
-    <div id="rename-panel" class="panel">
+    <div id="rename-panel" class="panel" role="tabpanel" aria-labelledby="tab-rename">
       <div class="section">
         <h3 data-i18n="rename.title">Mass Layer Renaming</h3>
         <p class="hint" data-i18n="rename.hint">Select frames, groups, or text layers and apply naming conventions. Components and vector elements will be skipped automatically.</p>
@@ -295,11 +315,11 @@
     </div>
 
     <!-- Custom Preset Modal -->
-    <div id="custom-preset-modal" class="prompts-modal-overlay" style="display: none;">
+    <div id="custom-preset-modal" class="prompts-modal-overlay" role="dialog" aria-labelledby="custom-preset-modal-title" aria-modal="true" style="display: none;">
       <div class="modal-container">
         <div class="modal-header">
-          <h3>✏️ Create Custom Preset</h3>
-          <button id="custom-preset-modal-close" class="btn-close">&times;</button>
+          <h3 id="custom-preset-modal-title">✏️ Create Custom Preset</h3>
+          <button id="custom-preset-modal-close" class="btn-close" aria-label="Close">&times;</button>
         </div>
         <div class="section">
           <div class="form-group">
@@ -323,11 +343,11 @@
     </div>
 
     <!-- Prompts Modal (overlay, opened from Generate panel) -->
-    <div id="prompts-panel" class="prompts-modal-overlay" style="display: none;">
+    <div id="prompts-panel" class="prompts-modal-overlay" role="dialog" aria-labelledby="prompts-modal-title" aria-modal="true" style="display: none;">
       <div class="modal-container">
         <div class="modal-header">
-          <h3 data-i18n="prompts.title">Saved Prompts Library</h3>
-          <button id="close-prompts-modal" class="btn-close">&times;</button>
+          <h3 id="prompts-modal-title" data-i18n="prompts.title">Saved Prompts Library</h3>
+          <button id="close-prompts-modal" class="btn-close" aria-label="Close">&times;</button>
         </div>
 
         <div class="section">
@@ -350,6 +370,10 @@
             <div class="form-group">
               <label data-i18n="prompts.form.prompt">Prompt *</label>
               <textarea id="prompt-form-content" rows="4" data-i18n-placeholder="prompts.form.promptPlaceholder" placeholder="Enter prompt text..."></textarea>
+            </div>
+            <div class="form-group">
+              <label data-i18n="prompts.form.systemPrompt">System Prompt (optional)</label>
+              <textarea id="prompt-form-system-prompt" rows="2" data-i18n-placeholder="prompts.form.systemPromptPlaceholder" placeholder="Optional system instructions..."></textarea>
             </div>
             <div class="form-row">
               <div class="form-group" style="flex: 1;">
@@ -390,20 +414,20 @@
       </div>
     </div>
 
-    <div id="help-panel" class="panel">
+    <div id="help-panel" class="panel" role="tabpanel" aria-labelledby="tab-help">
       <!-- Content rendered dynamically by HelpPanel.ts -->
     </div>
 
-    <!-- Notifications -->
-    <div id="notifications"></div>
+    <!-- Notifications (aria-live for screen readers) -->
+    <div id="notifications" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- Group Editor Modal -->
-    <div id="group-editor-modal" class="modal" style="display: none;">
+    <div id="group-editor-modal" class="modal" role="dialog" aria-labelledby="group-editor-title" aria-modal="true" style="display: none;">
       <div class="modal-overlay"></div>
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="group-editor-title" data-i18n="settings.group.create">Create Provider Group</h3>
-          <button class="modal-close" id="group-editor-close">×</button>
+          <button class="modal-close" id="group-editor-close" aria-label="Close">×</button>
         </div>
 
         <div class="modal-body">

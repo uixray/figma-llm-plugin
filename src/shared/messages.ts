@@ -43,6 +43,7 @@ export interface GenerateTextRequest {
   prompt: string;
   systemPrompt?: string;
   settings: GenerationSettings;
+  attachScreenshot?: boolean; // V2.2: Attach screenshot for vision models
 }
 
 /**
@@ -225,11 +226,28 @@ export interface DeleteRenamePresetRequest {
 }
 
 /**
+ * Отмена последней операции (undo)
+ */
+export interface UndoLastOperationRequest {
+  type: 'undo-last-operation';
+  id: string;
+}
+
+/**
+ * Reset settings to defaults
+ */
+export interface ResetSettingsRequest {
+  type: 'reset-settings';
+  id: string;
+}
+
+/**
  * Union type для всех сообщений UI → Sandbox
  */
 export type UIToSandboxMessage =
   | LoadSettingsRequest
   | SaveSettingsRequest
+  | ResetSettingsRequest
   | GenerateTextRequest
   | ApplyGeneratedTextRequest
   | CancelGenerationRequest
@@ -253,7 +271,8 @@ export type UIToSandboxMessage =
   | ApplyMultiResultsRequest
   | AIRenamePreviewRequest
   | SaveRenamePresetRequest
-  | DeleteRenamePresetRequest;
+  | DeleteRenamePresetRequest
+  | UndoLastOperationRequest;
 
 // ============================================================================
 // Message Types: Sandbox → UI
@@ -475,6 +494,16 @@ export interface BatchProgressMessage {
 }
 
 /**
+ * Результат undo операции
+ */
+export interface UndoOperationResponse {
+  type: 'undo-result';
+  id?: string;
+  restoredCount: number;
+  operationType: string;
+}
+
+/**
  * Ответ с загруженной библиотекой промптов
  */
 export interface PromptsLibraryLoadedResponse {
@@ -578,6 +607,7 @@ export type SandboxToUIMessage =
   | RenamePreviewResponse
   | RenameApplyResponse
   | BatchProgressMessage
+  | UndoOperationResponse
   | PromptsLibraryLoadedResponse
   | GenerationMultiChunkResponse
   | GenerationMultiCompleteResponse

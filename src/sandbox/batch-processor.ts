@@ -24,19 +24,30 @@ export interface BatchResult {
 }
 
 /**
- * Процессор для последовательной обработки множества текстовых узлов
+ * Default concurrency limit for parallel batch processing.
+ * Conservative default to avoid rate limits.
+ */
+const DEFAULT_CONCURRENCY = 3;
+
+/**
+ * Процессор для параллельной обработки множества текстовых узлов.
+ *
+ * V2.2: Supports parallel processing with configurable concurrency (default: 3).
+ * Uses Promise pool pattern to limit concurrent API requests.
  */
 export class BatchProcessor {
   private isCancelled = false;
+  private completedCount = 0;
 
   /**
-   * Обработка списка текстовых узлов
+   * Обработка списка текстовых узлов (параллельно, с ограничением concurrency)
    */
   async processBatch(
     textNodes: TextNodeInfo[],
     provider: BaseProvider,
     prompt: string,
-    settings: GenerationSettings
+    settings: GenerationSettings,
+    concurrency: number = DEFAULT_CONCURRENCY,
   ): Promise<BatchResult> {
     const startTime = Date.now();
     let successful = 0;
@@ -45,57 +56,61 @@ export class BatchProcessor {
     let totalCost = 0;
 
     this.isCancelled = false;
+    this.completedCount = 0;
 
-    console.log(`[BatchProcessor] Starting batch processing of ${textNodes.length} nodes`);
+    const total = textNodes.length;
+    console.log(`[BatchProcessor] Starting parallel batch processing: ${total} nodes, concurrency=${concurrency}`);
 
-    for (let i = 0; i < textNodes.length; i++) {
-      // Проверяем отмену
-      if (this.isCancelled) {
-        console.log('[BatchProcessor] Batch processing cancelled');
-        break;
-      }
+    // Process nodes using a concurrent pool
+    const results = await this.runPool(
+      textNodes,
+      async (node, index) => {
+        if (this.isCancelled) return null;
 
-      const node = textNodes[i];
-
-      // Отправляем прогресс
-      this.sendProgress({
-        current: i,
-        total: textNodes.length,
-        currentNodeName: node.name,
-        percentage: Math.round((i / textNodes.length) * 100),
-      });
-
-      try {
-        // Формируем промпт с учётом контекста узла
-        const contextualPrompt = this.buildContextualPrompt(prompt, node);
-
-        // Генерируем текст
-        const response = await provider.generateText(contextualPrompt, settings);
-
-        // Применяем текст к узлу
-        this.applyTextToNode(node.id, response.text);
-
-        // Обновляем статистику
-        totalTokens += response.tokens.input + response.tokens.output;
-        totalCost += response.cost;
-        successful++;
-
-        console.log(`[BatchProcessor] Processed node ${i + 1}/${textNodes.length}: ${node.name}`);
-      } catch (error) {
-        console.error(`[BatchProcessor] Failed to process node ${node.name}:`, error);
-        failed++;
-
-        // Отправляем уведомление об ошибке
-        sendToUI({
-          type: 'notification',
-          level: 'warning',
-          message: `Failed to process "${node.name}": ${error.message}`,
+        // Отправляем прогресс
+        this.sendProgress({
+          current: this.completedCount,
+          total,
+          currentNodeName: node.name,
+          percentage: Math.round((this.completedCount / total) * 100),
         });
-      }
 
-      // Небольшая задержка между запросами (чтобы не превысить rate limits)
-      if (i < textNodes.length - 1) {
-        await this.delay(500); // 500ms задержка
+        try {
+          const contextualPrompt = this.buildContextualPrompt(prompt, node);
+          const response = await provider.generateText(contextualPrompt, settings);
+
+          // Применяем текст к узлу
+          await this.applyTextToNodeAsync(node.id, response.text);
+
+          this.completedCount++;
+          console.log(`[BatchProcessor] Processed node ${this.completedCount}/${total}: ${node.name}`);
+
+          return { success: true as const, response };
+        } catch (error: any) {
+          this.completedCount++;
+          console.error(`[BatchProcessor] Failed to process node ${node.name}:`, error);
+
+          sendToUI({
+            type: 'notification',
+            level: 'warning',
+            message: `Failed to process "${node.name}": ${error.message}`,
+          });
+
+          return { success: false as const, error: error.message };
+        }
+      },
+      concurrency,
+    );
+
+    // Aggregate results
+    for (const result of results) {
+      if (!result) continue; // Cancelled
+      if (result.success) {
+        successful++;
+        totalTokens += result.response.tokens.input + result.response.tokens.output;
+        totalCost += result.response.cost;
+      } else {
+        failed++;
       }
     }
 
@@ -103,14 +118,14 @@ export class BatchProcessor {
 
     // Отправляем финальный прогресс (100%)
     this.sendProgress({
-      current: textNodes.length,
-      total: textNodes.length,
+      current: total,
+      total,
       currentNodeName: 'Completed',
       percentage: 100,
     });
 
     console.log(
-      `[BatchProcessor] Batch processing completed: ${successful} successful, ${failed} failed`
+      `[BatchProcessor] Batch processing completed: ${successful} successful, ${failed} failed, ${duration}ms`
     );
 
     return {
@@ -120,6 +135,37 @@ export class BatchProcessor {
       totalCost,
       duration,
     };
+  }
+
+  /**
+   * Concurrency-limited promise pool.
+   * Executes tasks in parallel with at most `limit` concurrent operations.
+   */
+  private async runPool<T, R>(
+    items: T[],
+    handler: (item: T, index: number) => Promise<R>,
+    limit: number,
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let nextIndex = 0;
+
+    const worker = async () => {
+      while (nextIndex < items.length && !this.isCancelled) {
+        const idx = nextIndex++;
+        results[idx] = await handler(items[idx], idx);
+
+        // Small delay between requests to respect rate limits
+        if (!this.isCancelled) {
+          await this.delay(200);
+        }
+      }
+    };
+
+    // Start `limit` concurrent workers
+    const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+    await Promise.allSettled(workers);
+
+    return results;
   }
 
   /**
@@ -147,21 +193,18 @@ export class BatchProcessor {
   }
 
   /**
-   * Применить сгенерированный текст к узлу
+   * Применить сгенерированный текст к узлу (async version)
    */
-  private applyTextToNode(nodeId: string, text: string): void {
-    const node = figma.getNodeById(nodeId);
+  private async applyTextToNodeAsync(nodeId: string, text: string): Promise<void> {
+    const node = await figma.getNodeByIdAsync(nodeId);
 
     if (!node || node.type !== 'TEXT') {
       throw new Error(`Node ${nodeId} is not a text node`);
     }
 
     const textNode = node as TextNode;
-
-    // Загружаем шрифты
-    this.loadFontsForNode(textNode).then(() => {
-      textNode.characters = text;
-    });
+    await this.loadFontsForNode(textNode);
+    textNode.characters = text;
   }
 
   /**

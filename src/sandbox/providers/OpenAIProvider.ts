@@ -70,4 +70,60 @@ export class OpenAIProvider extends BaseProvider {
 
     return this.parseResponse(data);
   }
+
+  /**
+   * Vision support — GPT-4o and GPT-4o Mini support image input
+   */
+  supportsVision(): boolean {
+    const model = this.baseConfig.model.toLowerCase();
+    return model.includes('gpt-4o') || model.includes('gpt-4-turbo');
+  }
+
+  async generateTextWithImage(
+    prompt: string,
+    imageBase64: string,
+    settings: GenerationSettings,
+  ): Promise<ProviderResponse> {
+    const url = `${this.getApiUrl()}/chat/completions`;
+
+    const body = {
+      model: this.baseConfig.model,
+      messages: [
+        {
+          role: 'system',
+          content: settings.systemPrompt || 'You are a helpful assistant analyzing designs.',
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/png;base64,${imageBase64}`,
+                detail: 'auto',
+              },
+            },
+          ],
+        },
+      ],
+      temperature: settings.temperature,
+      max_tokens: settings.maxTokens,
+      stream: false,
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      this.handleApiError(response, data);
+    }
+
+    return this.parseResponse(data);
+  }
 }

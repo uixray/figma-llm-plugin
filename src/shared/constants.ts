@@ -45,6 +45,13 @@ export const DEFAULT_TOKEN_PRICES = {
 };
 
 // ============================================================================
+// Plugin metadata
+// ============================================================================
+
+export const PLUGIN_VERSION = '2.3.0';
+export const PLUGIN_BUILD = '20260221';
+
+// ============================================================================
 // UI константы
 // ============================================================================
 
@@ -89,6 +96,64 @@ export const MIN_TEMPERATURE = 0.0;
 export const MAX_TEMPERATURE = 2.0;
 export const MIN_MAX_TOKENS = 1;
 export const MAX_MAX_TOKENS = 100000;
+
+// ============================================================================
+// Built-in Quick Action Prompts
+// ============================================================================
+
+export interface QuickAction {
+  id: string;
+  icon: string;
+  labelKey: string; // i18n key
+  fallbackLabel: string; // fallback (English)
+  prompt: string;
+  systemPrompt?: string;
+}
+
+export const QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: 'qa-shorter',
+    icon: '✂️',
+    labelKey: 'quickAction.shorter',
+    fallbackLabel: 'Shorter',
+    prompt: 'Make this text shorter while keeping the same meaning. Return only the result.',
+  },
+  {
+    id: 'qa-longer',
+    icon: '📝',
+    labelKey: 'quickAction.longer',
+    fallbackLabel: 'Longer',
+    prompt: 'Expand this text with more detail while keeping the same tone. Return only the result.',
+  },
+  {
+    id: 'qa-rewrite',
+    icon: '🔄',
+    labelKey: 'quickAction.rewrite',
+    fallbackLabel: 'Rewrite',
+    prompt: 'Rewrite this text in a different way while preserving the meaning. Return only the result.',
+  },
+  {
+    id: 'qa-fix-grammar',
+    icon: '✅',
+    labelKey: 'quickAction.fixGrammar',
+    fallbackLabel: 'Fix Grammar',
+    prompt: 'Fix any grammar, spelling, or punctuation errors in this text. Return only the corrected text.',
+  },
+  {
+    id: 'qa-translate-en',
+    icon: '🇬🇧',
+    labelKey: 'quickAction.translateEn',
+    fallbackLabel: 'To English',
+    prompt: 'Translate this text to English. Return only the translation.',
+  },
+  {
+    id: 'qa-translate-ru',
+    icon: '🇷🇺',
+    labelKey: 'quickAction.translateRu',
+    fallbackLabel: 'To Russian',
+    prompt: 'Translate this text to Russian. Return only the translation.',
+  },
+];
 
 // ============================================================================
 // Default Rename Presets

@@ -11,6 +11,66 @@ export class YandexProvider extends BaseProvider {
     return `Api-Key ${this.userConfig.apiKey}`;
   }
 
+  /**
+   * Vision support — Gemma 3 27B IT is a multimodal model on Yandex
+   */
+  supportsVision(): boolean {
+    const model = this.baseConfig.model.toLowerCase();
+    return model.includes('gemma-3');
+  }
+
+  async generateTextWithImage(
+    prompt: string,
+    imageBase64: string,
+    settings: GenerationSettings,
+  ): Promise<ProviderResponse> {
+    const url = this.getApiUrl();
+
+    console.log(`[YandexProvider] Vision request to: ${url}`);
+    console.log(`[YandexProvider] Model: ${this.baseConfig.model}`);
+
+    const body = {
+      modelUri: `gpt://${this.extractFolderId()}/${this.baseConfig.model}`,
+      completionOptions: {
+        stream: false,
+        temperature: settings.temperature,
+        maxTokens: String(settings.maxTokens),
+      },
+      messages: [
+        {
+          role: 'system',
+          text: settings.systemPrompt || 'Ты полезный помощник.',
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/png;base64,${imageBase64}`,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      this.handleApiError(response, data);
+    }
+
+    return this.parseResponse(data);
+  }
+
   protected buildRequestBody(prompt: string, settings: GenerationSettings): any {
     // Yandex использует свой формат запроса
     return {
@@ -94,6 +154,6 @@ export class YandexProvider extends BaseProvider {
     }
 
     // Если folderId не указан, выбросить ошибку
-    throw new Error('Yandex provider requires Model URI. Please edit the provider in Settings and specify Folder ID.');
+    throw new Error('Yandex: Folder ID is missing. Open the plugin → Settings → edit your Yandex group and enter Folder ID (find it in Yandex Cloud Console → Overview).');
   }
 }

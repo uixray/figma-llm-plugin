@@ -78,4 +78,59 @@ export class ClaudeProvider extends BaseProvider {
 
     return this.parseResponse(data);
   }
+
+  /**
+   * Vision support — All Claude 3+ models support image input
+   */
+  supportsVision(): boolean {
+    return true; // All Claude models via Messages API support images
+  }
+
+  async generateTextWithImage(
+    prompt: string,
+    imageBase64: string,
+    settings: GenerationSettings,
+  ): Promise<ProviderResponse> {
+    const url = `${this.getApiUrl()}/messages`;
+
+    const body = {
+      model: this.baseConfig.model,
+      max_tokens: settings.maxTokens,
+      temperature: settings.temperature,
+      system: settings.systemPrompt || 'You are a helpful assistant analyzing designs.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/png',
+                data: imageBase64,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      this.handleApiError(response, data);
+    }
+
+    return this.parseResponse(data);
+  }
 }

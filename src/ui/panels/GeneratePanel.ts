@@ -1,8 +1,9 @@
 import { sendToSandbox } from '../../shared/messages';
 import type { PluginSettings, UserProviderConfig } from '../../shared/types';
-import { generateUniqueId } from '../../shared/utils';
+import { generateUniqueId, PROMPT_VARIABLES } from '../../shared/utils';
 import { t } from '../../shared/i18n';
 import { PROVIDER_CONFIGS } from '../../shared/providers';
+import { QUICK_ACTIONS } from '../../shared/constants';
 import { getActiveModels, findModelById } from '../../shared/provider-groups-utils';
 import { getAllProviderConfigs } from '../../shared/provider-converter';
 
@@ -20,6 +21,7 @@ import { getAllProviderConfigs } from '../../shared/provider-converter';
 export class GeneratePanel {
   private settings: PluginSettings | null = null;
   private currentGenerationId: string | null = null;
+  private lastGeneratedText: string | null = null;
 
   // DOM elements
   private promptInput!: HTMLTextAreaElement;
@@ -28,11 +30,17 @@ export class GeneratePanel {
   private outputTokens!: HTMLSpanElement;
   private generateBtn!: HTMLButtonElement;
   private cancelBtn!: HTMLButtonElement;
+  private copyBtn!: HTMLButtonElement;
   private providerSelect!: HTMLSelectElement;
+  private batchProgressBar!: HTMLDivElement;
+  private batchProgressFill!: HTMLDivElement;
+  private batchProgressLabel!: HTMLSpanElement;
 
   constructor() {
     this.initElements();
     this.setupEventListeners();
+    this.renderVariableChips();
+    this.renderQuickActions();
   }
 
   /**
@@ -45,7 +53,11 @@ export class GeneratePanel {
     this.outputTokens = document.getElementById('output-tokens') as HTMLSpanElement;
     this.generateBtn = document.getElementById('generate-btn') as HTMLButtonElement;
     this.cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
+    this.copyBtn = document.getElementById('copy-result-btn') as HTMLButtonElement;
     this.providerSelect = document.getElementById('generate-provider-select') as HTMLSelectElement;
+    this.batchProgressBar = document.getElementById('batch-progress-bar') as HTMLDivElement;
+    this.batchProgressFill = document.getElementById('batch-progress-fill') as HTMLDivElement;
+    this.batchProgressLabel = document.getElementById('batch-progress-label') as HTMLSpanElement;
   }
 
   /**
@@ -54,10 +66,188 @@ export class GeneratePanel {
   private setupEventListeners(): void {
     this.generateBtn?.addEventListener('click', () => this.handleGenerate());
     this.cancelBtn?.addEventListener('click', () => this.handleCancel());
+    this.copyBtn?.addEventListener('click', () => this.copyLastResultToClipboard());
 
     // Saved Prompts modal
     document.getElementById('saved-prompts-btn')?.addEventListener('click', () => {
       this.openPromptsModal();
+    });
+
+    // Variable autocomplete on prompt input
+    this.setupVariableAutocomplete(this.promptInput);
+  }
+
+  /**
+   * Render Quick Action buttons above the prompt section.
+   * Clicking a quick action populates the prompt and triggers generation.
+   */
+  private renderQuickActions(): void {
+    const container = document.getElementById('quick-actions-bar');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // Label
+    const label = document.createElement('span');
+    label.className = 'quick-actions-label';
+    label.setAttribute('data-i18n', 'generate.quickActions');
+    label.textContent = t('generate.quickActions') || 'Quick Actions:';
+    container.appendChild(label);
+
+    // Buttons
+    for (const action of QUICK_ACTIONS) {
+      const btn = document.createElement('button');
+      btn.className = 'quick-action-btn';
+      btn.title = action.prompt;
+      btn.innerHTML = `${action.icon} <span data-i18n="${action.labelKey}">${t(action.labelKey) || action.fallbackLabel}</span>`;
+
+      btn.addEventListener('click', () => {
+        // Set prompt text
+        if (this.promptInput) {
+          this.promptInput.value = action.prompt;
+        }
+        // Set system prompt if provided
+        if (this.systemPromptInput && action.systemPrompt) {
+          this.systemPromptInput.value = action.systemPrompt;
+        }
+        // Trigger generation
+        this.handleGenerate();
+      });
+
+      container.appendChild(btn);
+    }
+  }
+
+  /**
+   * Render clickable variable chips below the prompt textarea.
+   * Clicking a chip inserts {variable_name} at the cursor position.
+   */
+  private renderVariableChips(): void {
+    const container = document.getElementById('variable-chips');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    for (const v of PROMPT_VARIABLES) {
+      const chip = document.createElement('span');
+      chip.className = 'variable-chip';
+      chip.textContent = `{${v.key}}`;
+      chip.title = v.description;
+      chip.addEventListener('click', () => {
+        this.insertTextAtCursor(this.promptInput, `{${v.key}}`);
+      });
+      container.appendChild(chip);
+    }
+  }
+
+  /**
+   * Insert text at the current cursor position in a textarea
+   */
+  private insertTextAtCursor(textarea: HTMLTextAreaElement, text: string): void {
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = textarea.value.substring(0, start);
+    const after = textarea.value.substring(end);
+
+    textarea.value = before + text + after;
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+    textarea.focus();
+  }
+
+  /**
+   * Setup variable autocomplete dropdown for a textarea.
+   * Shows a dropdown when user types '{' and filters as they type.
+   */
+  private setupVariableAutocomplete(textarea: HTMLTextAreaElement): void {
+    if (!textarea) return;
+
+    let dropdown: HTMLElement | null = null;
+
+    const closeDropdown = () => {
+      if (dropdown) {
+        dropdown.remove();
+        dropdown = null;
+      }
+    };
+
+    const insertVariable = (key: string) => {
+      const cursorPos = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, cursorPos);
+      const textAfter = textarea.value.substring(cursorPos);
+
+      // Find the start of the current {... token
+      const braceIdx = textBefore.lastIndexOf('{');
+      if (braceIdx === -1) return;
+
+      textarea.value = textBefore.substring(0, braceIdx) + `{${key}}` + textAfter;
+      const newPos = braceIdx + key.length + 2;
+      textarea.setSelectionRange(newPos, newPos);
+      textarea.focus();
+      closeDropdown();
+    };
+
+    textarea.addEventListener('input', () => {
+      const cursorPos = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, cursorPos);
+
+      // Check if we're inside an incomplete {variable
+      const braceIdx = textBefore.lastIndexOf('{');
+      const closeBraceIdx = textBefore.lastIndexOf('}');
+
+      if (braceIdx === -1 || (closeBraceIdx > braceIdx)) {
+        closeDropdown();
+        return;
+      }
+
+      const partial = textBefore.substring(braceIdx + 1).toLowerCase();
+
+      // Filter matching variables
+      const matches = PROMPT_VARIABLES.filter(v =>
+        v.key.toLowerCase().startsWith(partial) || v.description.toLowerCase().includes(partial)
+      );
+
+      if (matches.length === 0) {
+        closeDropdown();
+        return;
+      }
+
+      // Create or update dropdown
+      if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'variable-autocomplete';
+        // Insert after textarea within its parent section (which has position: relative)
+        const container = textarea.closest('.section') || textarea.parentElement;
+        container?.appendChild(dropdown);
+      }
+
+      dropdown.innerHTML = matches.map(v =>
+        `<div class="variable-autocomplete-item" data-key="${v.key}">
+          <span class="variable-key">{${v.key}}</span>
+          <span class="variable-desc">${v.description}</span>
+        </div>`
+      ).join('');
+
+      // Attach click handlers
+      dropdown.querySelectorAll('.variable-autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+          insertVariable((item as HTMLElement).dataset.key!);
+        });
+      });
+    });
+
+    // Close dropdown on blur (with delay for click handling)
+    textarea.addEventListener('blur', () => {
+      setTimeout(closeDropdown, 200);
+    });
+
+    // Close on Escape
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dropdown) {
+        e.stopPropagation();
+        closeDropdown();
+      }
     });
   }
 
@@ -119,6 +309,53 @@ export class GeneratePanel {
     if (activeId) {
       this.providerSelect.value = activeId;
     }
+
+    // Update vision checkbox visibility based on selected provider
+    this.updateVisionCheckboxVisibility();
+
+    // Listen for provider changes to update vision checkbox
+    this.providerSelect.addEventListener('change', () => {
+      this.updateVisionCheckboxVisibility();
+    });
+  }
+
+  /**
+   * Check if the currently selected provider supports vision
+   * and show/hide the "Attach screenshot" checkbox accordingly
+   */
+  private updateVisionCheckboxVisibility(): void {
+    const visionLabel = document.getElementById('vision-checkbox-label');
+    if (!visionLabel) return;
+
+    const providerId = this.getSelectedProviderId();
+    if (!providerId || !this.settings) {
+      visionLabel.style.display = 'none';
+      return;
+    }
+
+    // Find the base config to check provider type
+    const allConfigs = getAllProviderConfigs(
+      this.settings.providerConfigs || [],
+      this.settings.providerGroups || [],
+    );
+    const config = allConfigs.find(c => c.id === providerId);
+    if (!config) {
+      visionLabel.style.display = 'none';
+      return;
+    }
+
+    const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
+    const provider = baseConfig?.provider || '';
+
+    // Vision-capable providers: OpenAI (GPT-4o), Claude, Gemini, Yandex (Gemma 3)
+    const model = (baseConfig?.model || '').toLowerCase();
+    const isVisionCapable =
+      (provider === 'openai' && (model.includes('gpt-4o') || model.includes('gpt-4-turbo'))) ||
+      provider === 'claude' ||
+      provider === 'gemini' ||
+      (provider === 'yandex' && model.includes('gemma-3'));
+
+    visionLabel.style.display = isVisionCapable ? 'flex' : 'none';
   }
 
   /**
@@ -187,6 +424,10 @@ export class GeneratePanel {
     this.generateBtn.style.display = 'none';
     this.cancelBtn.style.display = 'block';
 
+    // Check if "Attach screenshot" checkbox is checked
+    const screenshotCheckbox = document.getElementById('attach-screenshot-checkbox') as HTMLInputElement;
+    const attachScreenshot = screenshotCheckbox?.checked || false;
+
     const id = generateUniqueId();
     sendToSandbox({
       type: 'generate-text',
@@ -195,6 +436,7 @@ export class GeneratePanel {
       prompt,
       systemPrompt: systemPrompt || undefined,
       settings: this.settings.generation,
+      attachScreenshot,
     });
   }
 
@@ -233,6 +475,26 @@ export class GeneratePanel {
   }
 
   /**
+   * Handle batch processing progress
+   */
+  handleBatchProgress(current: number, total: number, currentNodeName: string, percentage: number): void {
+    this.outputStatus.textContent = `Processing ${current + 1}/${total}: ${currentNodeName}`;
+    this.outputTokens.textContent = `${percentage}%`;
+
+    // Show and update visual progress bar
+    if (this.batchProgressBar) {
+      this.batchProgressBar.style.display = 'flex';
+      this.batchProgressBar.setAttribute('aria-valuenow', String(percentage));
+    }
+    if (this.batchProgressFill) {
+      this.batchProgressFill.style.width = `${percentage}%`;
+    }
+    if (this.batchProgressLabel) {
+      this.batchProgressLabel.textContent = `${current + 1}/${total}`;
+    }
+  }
+
+  /**
    * Handle generation complete — text was already auto-applied by sandbox
    */
   handleGenerationComplete(fullText: string, tokensUsed: number, duration?: number, cost?: number, appliedCount?: number): void {
@@ -253,6 +515,15 @@ export class GeneratePanel {
     this.generateBtn.style.display = 'block';
     this.cancelBtn.style.display = 'none';
 
+    // Hide batch progress bar
+    this.hideBatchProgressBar();
+
+    // Store last result and show copy button
+    this.lastGeneratedText = fullText;
+    if (this.copyBtn) {
+      this.copyBtn.style.display = fullText ? 'inline-flex' : 'none';
+    }
+
     if (appliedCount && appliedCount > 0) {
       this.showNotification(`Applied to ${appliedCount} layer${appliedCount !== 1 ? 's' : ''}`, 'success');
     } else {
@@ -270,6 +541,9 @@ export class GeneratePanel {
 
     this.generateBtn.style.display = 'block';
     this.cancelBtn.style.display = 'none';
+
+    // Hide batch progress bar
+    this.hideBatchProgressBar();
 
     this.showNotification(error, 'error');
     this.currentGenerationId = null;
@@ -290,6 +564,9 @@ export class GeneratePanel {
       this.cancelBtn.style.display = 'none';
       this.outputStatus.textContent = 'Cancelled';
 
+      // Hide batch progress bar
+      this.hideBatchProgressBar();
+
       this.currentGenerationId = null;
     }
   }
@@ -307,6 +584,93 @@ export class GeneratePanel {
     }
 
     this.showNotification('Selected text added to prompt', 'success');
+  }
+
+  // ============================================================================
+  // Public methods for keyboard shortcuts
+  // ============================================================================
+
+  /**
+   * Trigger generation from external caller (keyboard shortcut).
+   * Only triggers if the generate button is visible (not currently generating).
+   */
+  triggerGenerate(): void {
+    if (this.generateBtn && this.generateBtn.style.display !== 'none') {
+      this.handleGenerate();
+    }
+  }
+
+  /**
+   * Trigger cancel from external caller (keyboard shortcut).
+   * Only cancels if a generation is currently in progress.
+   */
+  triggerCancel(): void {
+    if (this.currentGenerationId) {
+      this.handleCancel();
+    }
+  }
+
+  /**
+   * Copy last generation result to clipboard.
+   * Used by both copy button click and Ctrl+Shift+C shortcut.
+   */
+  async copyLastResultToClipboard(): Promise<void> {
+    if (!this.lastGeneratedText) {
+      this.showNotification(t('generate.copy.noResult'), 'warning');
+      return;
+    }
+
+    try {
+      await this.copyToClipboard(this.lastGeneratedText);
+      this.showNotification(t('generate.copy.success'), 'success');
+
+      // Brief visual feedback on copy button
+      if (this.copyBtn) {
+        const originalText = this.copyBtn.textContent;
+        this.copyBtn.textContent = '✓';
+        setTimeout(() => {
+          if (this.copyBtn) this.copyBtn.textContent = originalText;
+        }, 1500);
+      }
+    } catch {
+      this.showNotification(t('generate.copy.error'), 'error');
+    }
+  }
+
+  /**
+   * Copy text to clipboard with fallback for Figma iframe
+   * (navigator.clipboard requires Secure Context + permissions)
+   */
+  private async copyToClipboard(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for Figma iframe where Clipboard API is unavailable
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.pointerEvents = 'none';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+  }
+
+  /**
+   * Hide and reset the batch progress bar
+   */
+  private hideBatchProgressBar(): void {
+    if (this.batchProgressBar) {
+      this.batchProgressBar.style.display = 'none';
+    }
+    if (this.batchProgressFill) {
+      this.batchProgressFill.style.width = '0%';
+    }
+    if (this.batchProgressLabel) {
+      this.batchProgressLabel.textContent = '0%';
+    }
   }
 
   // ============================================================================

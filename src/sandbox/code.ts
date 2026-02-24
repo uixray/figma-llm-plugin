@@ -1,12 +1,13 @@
 import { UIToSandboxMessage, sendToUI } from '../shared/messages';
-import { PLUGIN_WIDTH, PLUGIN_HEIGHT, DEFAULT_TOKEN_PRICES } from '../shared/constants';
+import { PLUGIN_WIDTH, PLUGIN_HEIGHT, DEFAULT_TOKEN_PRICES, QUICK_ACTIONS } from '../shared/constants';
 import { StorageManager } from './storage-manager';
 import { ApiClient } from './api-client';
-import { getSelectedTextNodes, applyTextToNodes, applyDataSubstitution, applyDataSubstitutionSequential, reverseRenameByContent } from './figma-helpers';
+import { getSelectedTextNodes, applyTextToNodes, applyDataSubstitution, applyDataSubstitutionSequential, reverseRenameByContent, getPromptVariableContext, undoLastOperation, exportSelectionAsBase64 } from './figma-helpers';
 import { withRetry } from './retry-helper';
-import { generateUniqueId } from '../shared/utils';
+import { generateUniqueId, resolvePromptVariables, promptHasVariables } from '../shared/utils';
 import { SimpleAbortSignal, createTimeoutSignal } from '../shared/abort-helper';
 import type { DataPreset } from '../shared/types';
+import { DEFAULT_SETTINGS } from '../shared/types';
 // V2 Feature Handlers
 import { RenameHandler } from './rename-handler';
 import { PromptsHandler } from './prompts-handler';
@@ -14,6 +15,7 @@ import { BatchProcessor } from './batch-processor';
 import { ProviderFactory } from './providers/ProviderFactory';
 import { PROVIDER_CONFIGS } from '../shared/providers';
 import { findModelById, modelToUserConfig } from '../shared/provider-groups-utils';
+import { ResponseCache } from './response-cache';
 
 // Стандартные пресеты для быстрого доступа
 const BUILT_IN_PRESETS: Record<string, DataPreset> = {
@@ -261,11 +263,13 @@ class PluginSandbox {
   private apiClient: ApiClient;
   private activeGenerations = new Map<string, SimpleAbortSignal>();
   private pendingTranslation: { textNode: TextNode; originalText: string } | null = null;
+  private pendingQuickActionId: string | null = null;
 
   // V2 Feature Handlers
   private renameHandler: RenameHandler;
   private promptsHandler: PromptsHandler;
   private batchProcessor: BatchProcessor;
+  private responseCache: ResponseCache;
 
   constructor() {
     this.storageManager = new StorageManager();
@@ -275,6 +279,7 @@ class PluginSandbox {
     this.renameHandler = new RenameHandler(this.storageManager, this.apiClient);
     this.promptsHandler = new PromptsHandler(this.storageManager);
     this.batchProcessor = new BatchProcessor();
+    this.responseCache = new ResponseCache();
 
     this.setupMessageListener();
     this.initializePlugin();
@@ -300,6 +305,9 @@ class PluginSandbox {
     } else if (command === 'reverse-rename') {
       // Показываем окно для выбора пресета для обратного переименования
       await this.showReverseRenameUI();
+    } else if (command && QUICK_ACTIONS.some(qa => qa.id === command)) {
+      // Быстрое действие генерации через LLM (без открытия UI)
+      await this.showQuickActionUI(command);
     } else if (command && command.startsWith('builtin-')) {
       // Быстрое применение встроенного пресета
       const presetKey = command.replace('builtin-', '');
@@ -380,9 +388,13 @@ class PluginSandbox {
    */
   private async handleUIMessage(message: any): Promise<void> {
     try {
-      // Специальная обработка ui-ready для перевода
+      // Специальная обработка ui-ready для фоновых операций
       if (message.type === 'ui-ready') {
-        await this.executeTranslation();
+        if (this.pendingQuickActionId) {
+          await this.executeQuickAction();
+        } else {
+          await this.executeTranslation();
+        }
         return;
       }
 
@@ -392,6 +404,9 @@ class PluginSandbox {
           break;
         case 'save-settings':
           await this.handleSaveSettings(message);
+          break;
+        case 'reset-settings':
+          await this.handleResetSettings();
           break;
         case 'settings-updated':
           // Просто пересылаем сообщение в UI для обновления в реальном времени
@@ -408,6 +423,10 @@ class PluginSandbox {
           break;
         case 'cancel-generation':
           await this.handleCancelGeneration(message);
+          break;
+        case 'clear-response-cache':
+          this.responseCache.clear();
+          sendToUI({ type: 'notification', level: 'info', message: 'Response cache cleared' });
           break;
         case 'get-selected-text':
           await this.handleGetSelectedText(message);
@@ -486,6 +505,11 @@ class PluginSandbox {
         case 'apply-multi-results':
           await this.handleApplyMultiResults(message);
           break;
+
+        // Undo
+        case 'undo-last-operation':
+          await this.handleUndoLastOperation(message);
+          break;
       }
     } catch (error) {
       console.error('Error handling message:', error);
@@ -560,6 +584,35 @@ class PluginSandbox {
   }
 
   /**
+   * Reset settings to defaults
+   */
+  private async handleResetSettings(): Promise<void> {
+    try {
+      console.log('[Sandbox] Resetting settings to defaults');
+      const defaults = { ...DEFAULT_SETTINGS };
+      await this.storageManager.saveSettings(defaults);
+
+      sendToUI({
+        type: 'settings-loaded',
+        settings: defaults,
+      });
+
+      sendToUI({
+        type: 'notification',
+        level: 'success',
+        message: 'Settings reset to defaults',
+      });
+    } catch (error) {
+      console.error('[Sandbox] Failed to reset settings:', error);
+      sendToUI({
+        type: 'notification',
+        level: 'error',
+        message: 'Failed to reset settings',
+      });
+    }
+  }
+
+  /**
    * Обработка генерации текста
    */
   private async handleGenerateText(message: any): Promise<void> {
@@ -607,6 +660,17 @@ class PluginSandbox {
 
       const selectedTextNodes = await getSelectedTextNodes();
 
+      // Resolve prompt variables ({layer_name}, {page_name}, etc.)
+      let userPrompt = message.prompt;
+      let userSystemPrompt = message.systemPrompt;
+      if (promptHasVariables(userPrompt) || (userSystemPrompt && promptHasVariables(userSystemPrompt))) {
+        const varContext = getPromptVariableContext();
+        userPrompt = resolvePromptVariables(userPrompt, varContext);
+        if (userSystemPrompt) {
+          userSystemPrompt = resolvePromptVariables(userSystemPrompt, varContext);
+        }
+      }
+
       // Системный промпт
       // Для per-layer режима: инструкция пользователя (напр. "Переведи на английский")
       // становится СИСТЕМНЫМ промптом, а текст каждого слоя — user message.
@@ -617,19 +681,19 @@ class PluginSandbox {
 
       if (hasSelectedLayers) {
         // Per-layer режим: формируем system prompt из всех доступных инструкций
-        if (message.systemPrompt && message.prompt) {
+        if (userSystemPrompt && userPrompt) {
           // Есть и system prompt, и prompt — комбинируем оба
-          systemPrompt = `${message.systemPrompt}\n\nUser instruction: ${message.prompt}${cleanOutputSuffix}`;
-        } else if (message.systemPrompt) {
+          systemPrompt = `${userSystemPrompt}\n\nUser instruction: ${userPrompt}${cleanOutputSuffix}`;
+        } else if (userSystemPrompt) {
           // Только system prompt (из библиотеки промптов)
-          systemPrompt = `${message.systemPrompt}${cleanOutputSuffix}`;
+          systemPrompt = `${userSystemPrompt}${cleanOutputSuffix}`;
         } else {
           // Только prompt (пользователь ввёл в поле промпта)
-          systemPrompt = `${message.prompt}${cleanOutputSuffix}`;
+          systemPrompt = `${userPrompt}${cleanOutputSuffix}`;
         }
       } else {
         // Без слоёв: стандартная схема
-        systemPrompt = message.systemPrompt || 'You are a helpful assistant.';
+        systemPrompt = userSystemPrompt || 'You are a helpful assistant.';
       }
 
       // Уведомляем UI о начале генерации
@@ -647,22 +711,60 @@ class PluginSandbox {
 
       if (selectedTextNodes.length === 0) {
         // Нет выделенных слоёв — просто генерируем текст по промпту
-        const result = await withRetry(async () => {
-          return await provider.generateText(message.prompt, {
-            ...message.settings,
-            systemPrompt,
-          });
-        });
+        // Check if vision mode is requested
+        let screenshotBase64: string | null = null;
+        if (message.attachScreenshot && provider.supportsVision()) {
+          screenshotBase64 = await exportSelectionAsBase64();
+          if (screenshotBase64) {
+            console.log(`[PluginSandbox] Vision mode: attached screenshot (${screenshotBase64.length} chars base64)`);
+          }
+        }
 
-        lastFullText = result.text;
-        totalTokens = result.tokens.input + result.tokens.output;
+        // Check response cache (skip for vision requests — images make caching impractical)
+        const cacheKey = !screenshotBase64 ? ResponseCache.generateKey({
+          providerId: message.providerId,
+          prompt: userPrompt,
+          systemPrompt,
+          temperature: message.settings.temperature,
+          maxTokens: message.settings.maxTokens,
+        }) : null;
+
+        const cached = cacheKey ? this.responseCache.get(cacheKey) : null;
+
+        if (cached) {
+          console.log('[PluginSandbox] Cache HIT — returning cached response');
+          lastFullText = cached.text;
+          totalTokens = cached.tokens;
+        } else {
+          const result = await withRetry(async () => {
+            if (screenshotBase64 && provider.supportsVision()) {
+              return await provider.generateTextWithImage(userPrompt, screenshotBase64, {
+                ...message.settings,
+                systemPrompt,
+              });
+            }
+            return await provider.generateText(userPrompt, {
+              ...message.settings,
+              systemPrompt,
+            });
+          });
+
+          lastFullText = result.text;
+          totalTokens = result.tokens.input + result.tokens.output;
+
+          // Store in cache (only non-vision responses)
+          if (cacheKey) {
+            this.responseCache.set(cacheKey, lastFullText, totalTokens);
+            console.log(`[PluginSandbox] Cache MISS — stored response (cache size: ${this.responseCache.size})`);
+          }
+        }
 
         // Отправляем результат как чанк для совместимости с UI
         sendToUI({
           type: 'generation-chunk',
           id: message.id,
           generationId,
-          chunk: result.text,
+          chunk: lastFullText,
           tokensGenerated: totalTokens,
         });
       } else {
@@ -716,8 +818,8 @@ class PluginSandbox {
           // Постобработка: очистка ответа от мусора нейросети
           let cleanResult = this.cleanAIResponse(layerResult, node.characters);
 
-          // Вставляем результат в ЭТОТ КОНКРЕТНЫЙ слой
-          const applied = await applyTextToNodes(cleanResult, [node.id]);
+          // Вставляем результат в ЭТОТ КОНКРЕТНЫЙ слой (с записью в undo history)
+          const applied = await applyTextToNodes(cleanResult, [node.id], generationId);
           appliedCount += applied;
 
           console.log(`[PluginSandbox] Layer ${i + 1}/${selectedTextNodes.length} "${node.name}": "${node.characters}" → "${cleanResult}"`);
@@ -835,7 +937,7 @@ class PluginSandbox {
    */
   private async handleApplyText(message: any): Promise<void> {
     try {
-      const appliedCount = await applyTextToNodes(message.text, message.targetNodeIds);
+      const appliedCount = await applyTextToNodes(message.text, message.targetNodeIds, message.id);
 
       sendToUI({
         type: 'text-applied',
@@ -1167,6 +1269,133 @@ class PluginSandbox {
   }
 
   /**
+   * Показать невидимый UI для фонового быстрого действия LLM
+   */
+  private async showQuickActionUI(actionId: string): Promise<void> {
+    const selectedNodes = figma.currentPage.selection;
+    const hasTextLayers = selectedNodes.some(n => n.type === 'TEXT' ||
+      ('findAll' in n && (n as FrameNode).findAll(child => child.type === 'TEXT').length > 0));
+
+    if (!hasTextLayers) {
+      figma.notify('⚠️ Select text layers first');
+      figma.closePlugin();
+      return;
+    }
+
+    this.pendingQuickActionId = actionId;
+
+    const html = `
+      <html>
+        <head><style>body { margin: 0; padding: 0; }</style></head>
+        <body>
+          <script>
+            parent.postMessage({ pluginMessage: { type: 'ui-ready' } }, '*');
+          </script>
+        </body>
+      </html>
+    `;
+
+    figma.showUI(html, { visible: false, width: 1, height: 1 });
+    figma.notify('⏳ Processing...');
+  }
+
+  /**
+   * Выполнение быстрого LLM-действия после загрузки UI (для доступа к fetch)
+   */
+  private async executeQuickAction(): Promise<void> {
+    const actionId = this.pendingQuickActionId;
+    this.pendingQuickActionId = null;
+
+    const action = QUICK_ACTIONS.find(qa => qa.id === actionId);
+    if (!action) {
+      figma.notify('❌ Unknown quick action');
+      figma.closePlugin();
+      return;
+    }
+
+    try {
+      // Загружаем настройки и находим первый активный провайдер
+      const settings = await this.storageManager.loadSettings();
+      let config: any = null;
+
+      // V2.1: ищем в provider groups
+      if (settings.providerGroups && settings.providerGroups.length > 0) {
+        // Приоритет: активная модель → первая активная в любой группе
+        if (settings.activeModelId) {
+          const modelInfo = findModelById(settings, settings.activeModelId);
+          if (modelInfo && modelInfo.model.enabled && modelInfo.group.enabled) {
+            config = modelToUserConfig(modelInfo.group, modelInfo.model);
+          }
+        }
+        if (!config) {
+          for (const group of settings.providerGroups) {
+            if (!group.enabled) continue;
+            const model = group.modelConfigs.find(m => m.enabled);
+            if (model) {
+              config = modelToUserConfig(group, model);
+              break;
+            }
+          }
+        }
+      }
+
+      // Fallback: legacy providerConfigs
+      if (!config && settings.providerConfigs) {
+        config = settings.providerConfigs.find(c => c.enabled);
+      }
+
+      if (!config) {
+        figma.notify('⚙️ No enabled provider. Open plugin → Settings to configure one.');
+        figma.closePlugin();
+        return;
+      }
+
+      const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
+      if (!baseConfig) {
+        figma.notify('⚙️ Provider config not found. Check Settings.');
+        figma.closePlugin();
+        return;
+      }
+
+      const provider = ProviderFactory.createProvider(config, baseConfig);
+      const textNodes = await getSelectedTextNodes();
+
+      if (textNodes.length === 0) {
+        figma.notify('⚠️ No text layers selected');
+        figma.closePlugin();
+        return;
+      }
+
+      const generationId = generateUniqueId();
+      let processedCount = 0;
+
+      for (const node of textNodes) {
+        if (!node.characters.trim()) continue;
+
+        const result = await withRetry(() =>
+          provider.generateText(node.characters, {
+            systemPrompt: action.prompt + '\n\nIMPORTANT: Output ONLY the result. No explanations, labels, quotes, or extra text.',
+            temperature: 0,
+            maxTokens: Math.min(settings.generation?.maxTokens ?? 2000, 500),
+          })
+        );
+
+        const cleanResult = this.cleanAIResponse(result.text, node.characters);
+        await applyTextToNodes(cleanResult, [node.id], generationId);
+        processedCount++;
+      }
+
+      const label = action.fallbackLabel;
+      figma.notify(`✅ ${label}: ${processedCount} layer${processedCount !== 1 ? 's' : ''} updated`);
+    } catch (error) {
+      console.error('[QuickAction] Error:', error);
+      figma.notify(`❌ ${error.message || 'Generation failed'}`);
+    } finally {
+      figma.closePlugin();
+    }
+  }
+
+  /**
    * Выполнение перевода после загрузки UI
    */
   private async executeTranslation(): Promise<void> {
@@ -1259,12 +1488,61 @@ class PluginSandbox {
   }
 
   /**
-   * Расчёт стоимости генерации (V2 - использует providerId)
-   * TODO: Реализовать правильный расчёт по baseConfigId
+   * Расчёт стоимости генерации по baseConfigId
+   * Использует pricing из PROVIDER_CONFIGS ($ per 1M tokens).
+   * Для упрощения считаем все токены по усреднённой ставке (input + output) / 2.
    */
   private calculateCost(providerId: string, tokens: number): number {
-    // V2: Пока возвращаем 0, позже добавим расчёт по baseConfigId из settings
+    // Ищем baseConfigId через provider groups или legacy configs
+    const providerConfig = PROVIDER_CONFIGS.find(p => p.id === providerId);
+
+    if (providerConfig && providerConfig.pricing) {
+      // Усреднённая ставка (input + output) / 2 за 1M токенов
+      const avgPricePerMillion = (providerConfig.pricing.input + providerConfig.pricing.output) / 2;
+      return (tokens / 1_000_000) * avgPricePerMillion;
+    }
+
+    // Fallback: может быть model ID из provider groups
+    // В этом случае providerId — это user config ID, не baseConfigId
+    // Для точного расчёта нужен baseConfigId, но его здесь нет
     return 0;
+  }
+
+  // ============================================================================
+  // Undo Handler
+  // ============================================================================
+
+  /**
+   * Undo the last text/rename operation
+   */
+  private async handleUndoLastOperation(message: any): Promise<void> {
+    try {
+      const result = await undoLastOperation();
+
+      if (result.restoredCount > 0) {
+        sendToUI({
+          type: 'undo-result',
+          id: message.id,
+          restoredCount: result.restoredCount,
+          operationType: result.operationType,
+        });
+
+        figma.notify(`✅ Undo: restored ${result.restoredCount} layer${result.restoredCount !== 1 ? 's' : ''}`);
+      } else {
+        sendToUI({
+          type: 'notification',
+          level: 'info',
+          message: 'Nothing to undo',
+        });
+      }
+    } catch (error: any) {
+      console.error('[Undo] Error:', error);
+      sendToUI({
+        type: 'notification',
+        level: 'error',
+        message: `Undo failed: ${error.message}`,
+      });
+    }
   }
 
   // ============================================================================
@@ -1541,13 +1819,6 @@ class PluginSandbox {
         provider,
         message.prompt,
         settings.generation,
-        (progress) => {
-          sendToUI({
-            type: 'batch-progress',
-            id: message.id,
-            progress,
-          });
-        }
       );
 
       sendToUI({

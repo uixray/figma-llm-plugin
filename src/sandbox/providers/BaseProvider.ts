@@ -30,6 +30,31 @@ export abstract class BaseProvider {
   abstract generateText(prompt: string, settings: GenerationSettings): Promise<ProviderResponse>;
 
   /**
+   * Whether this provider supports vision (image input).
+   * Override in subclasses that support multimodal input.
+   */
+  supportsVision(): boolean {
+    return false;
+  }
+
+  /**
+   * Generate text with an image attachment (vision mode).
+   * Override in subclasses that support it.
+   * @param prompt Text prompt
+   * @param imageBase64 Base64-encoded image (PNG/JPEG)
+   * @param settings Generation settings
+   */
+  async generateTextWithImage(
+    prompt: string,
+    imageBase64: string,
+    settings: GenerationSettings,
+  ): Promise<ProviderResponse> {
+    // Default: fall back to text-only generation
+    console.warn(`[${this.baseConfig.name}] Vision not supported, falling back to text-only`);
+    return this.generateText(prompt, settings);
+  }
+
+  /**
    * Получить заголовки для HTTP запроса
    */
   protected getHeaders(): Record<string, string> {

@@ -2,6 +2,7 @@ import { sendToSandbox } from '../../shared/messages';
 import { SavedPromptsLibrary, SavedPrompt, PluginSettings } from '../../shared/types';
 import { generateUniqueId } from '../../shared/utils';
 import { PROVIDER_CONFIGS } from '../../shared/providers';
+import { getAllProviderConfigs } from '../../shared/provider-converter';
 
 /**
  * UI панель для управления библиотекой сохранённых промптов.
@@ -98,13 +99,18 @@ export class PromptsPanel {
     const currentValue = select.value;
     select.innerHTML = '<option value="">Any (use active provider)</option>';
 
-    const enabledConfigs = this.settings.providerConfigs.filter(c => c.enabled);
+    // V2.1: Combine Legacy providers and Provider Groups
+    const legacyConfigs = this.settings.providerConfigs || [];
+    const groups = this.settings.providerGroups || [];
+    const allConfigs = getAllProviderConfigs(legacyConfigs, groups);
+    const enabledConfigs = allConfigs.filter(c => c.enabled);
+
     enabledConfigs.forEach(config => {
       const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
       const opt = document.createElement('option');
       opt.value = config.id;
       const icon = this.getProviderIcon(baseConfig?.provider || '');
-      opt.textContent = `${icon} ${config.name}${baseConfig ? ' — ' + baseConfig.name : ''}`;
+      opt.textContent = `${icon} ${config.name}`;
       select.appendChild(opt);
     });
 
@@ -237,7 +243,11 @@ export class PromptsPanel {
 
     let providerBadge = '';
     if (prompt.preferredProviderId && this.settings) {
-      const config = this.settings.providerConfigs.find(c => c.id === prompt.preferredProviderId);
+      const allConfigs = getAllProviderConfigs(
+        this.settings.providerConfigs || [],
+        this.settings.providerGroups || []
+      );
+      const config = allConfigs.find(c => c.id === prompt.preferredProviderId);
       if (config) {
         const baseConfig = PROVIDER_CONFIGS.find(p => p.id === config.baseConfigId);
         const icon = this.getProviderIcon(baseConfig?.provider || '');
@@ -276,6 +286,12 @@ export class PromptsPanel {
     if (promptInput) {
       promptInput.value = prompt.content;
       promptInput.focus();
+    }
+
+    // Вставляем системный промпт (если есть)
+    const systemPromptInput = document.getElementById('system-prompt-input') as HTMLTextAreaElement;
+    if (systemPromptInput && prompt.systemPrompt) {
+      systemPromptInput.value = prompt.systemPrompt;
     }
 
     // Если у промпта есть предпочитаемый провайдер — выбираем его
@@ -319,12 +335,16 @@ export class PromptsPanel {
     const promptInput = document.getElementById('prompt-input') as HTMLTextAreaElement;
     const currentPrompt = promptInput?.value || '';
 
+    // Берём текущий системный промпт
+    const systemPromptInput = document.getElementById('system-prompt-input') as HTMLTextAreaElement;
+    const currentSystemPrompt = systemPromptInput?.value || '';
+
     // Берём текущий выбранный провайдер из Generate panel
     const providerSelect = document.getElementById('generate-provider-select') as HTMLSelectElement;
     const currentProvider = providerSelect?.value || '';
 
     this.populateProviderDropdown();
-    this.populateForm('', currentPrompt, 'General', '', currentProvider);
+    this.populateForm('', currentPrompt, 'General', '', currentProvider, currentSystemPrompt);
     this.showForm();
   }
 
@@ -339,7 +359,8 @@ export class PromptsPanel {
       promptData.content,
       promptData.category || 'General',
       promptData.tags?.join(', ') || '',
-      promptData.preferredProviderId || ''
+      promptData.preferredProviderId || '',
+      promptData.systemPrompt || ''
     );
     this.showForm();
   }
@@ -347,15 +368,17 @@ export class PromptsPanel {
   /**
    * Заполнить форму значениями
    */
-  private populateForm(name: string, content: string, category: string, tags: string, providerId?: string): void {
+  private populateForm(name: string, content: string, category: string, tags: string, providerId?: string, systemPrompt?: string): void {
     const nameInput = document.getElementById('prompt-form-name') as HTMLInputElement;
     const contentInput = document.getElementById('prompt-form-content') as HTMLTextAreaElement;
+    const systemPromptInput = document.getElementById('prompt-form-system-prompt') as HTMLTextAreaElement;
     const categorySelect = document.getElementById('prompt-form-category') as HTMLSelectElement;
     const tagsInput = document.getElementById('prompt-form-tags') as HTMLInputElement;
     const providerSelect = document.getElementById('prompt-form-provider') as HTMLSelectElement;
 
     if (nameInput) nameInput.value = name;
     if (contentInput) contentInput.value = content;
+    if (systemPromptInput) systemPromptInput.value = systemPrompt || '';
     if (categorySelect) categorySelect.value = category;
     if (tagsInput) tagsInput.value = tags;
     if (providerSelect) providerSelect.value = providerId || '';
@@ -397,12 +420,14 @@ export class PromptsPanel {
   private saveFromForm(): void {
     const nameInput = document.getElementById('prompt-form-name') as HTMLInputElement;
     const contentInput = document.getElementById('prompt-form-content') as HTMLTextAreaElement;
+    const systemPromptInput = document.getElementById('prompt-form-system-prompt') as HTMLTextAreaElement;
     const categorySelect = document.getElementById('prompt-form-category') as HTMLSelectElement;
     const tagsInput = document.getElementById('prompt-form-tags') as HTMLInputElement;
     const providerSelect = document.getElementById('prompt-form-provider') as HTMLSelectElement;
 
     const name = nameInput?.value.trim();
     const content = contentInput?.value.trim();
+    const systemPrompt = systemPromptInput?.value.trim() || undefined;
     const category = categorySelect?.value || 'General';
     const tagsRaw = tagsInput?.value || '';
     const tags = tagsRaw
@@ -429,6 +454,7 @@ export class PromptsPanel {
         ...this.editingPrompt,
         name,
         content,
+        systemPrompt,
         category,
         tags,
         preferredProviderId,
@@ -447,6 +473,7 @@ export class PromptsPanel {
         id: generateUniqueId(),
         name,
         content,
+        systemPrompt,
         category,
         tags,
         preferredProviderId,

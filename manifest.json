@@ -7,6 +7,41 @@
   "editorType": ["figma"],
   "menu": [
     {
+      "name": "Quick Actions",
+      "menu": [
+        {
+          "name": "Shorten",
+          "command": "qa-shorter"
+        },
+        {
+          "name": "Expand",
+          "command": "qa-longer"
+        },
+        {
+          "name": "Rewrite",
+          "command": "qa-rewrite"
+        },
+        {
+          "name": "Fix Grammar",
+          "command": "qa-fix-grammar"
+        },
+        {
+          "separator": true
+        },
+        {
+          "name": "Translate to English",
+          "command": "qa-translate-en"
+        },
+        {
+          "name": "Translate to Russian",
+          "command": "qa-translate-ru"
+        }
+      ]
+    },
+    {
+      "separator": true
+    },
+    {
       "name": "Built-in Presets",
       "menu": [
         {
