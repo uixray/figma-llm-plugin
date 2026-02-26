@@ -91,4 +91,61 @@ export class GeminiProvider extends BaseProvider {
 
     return this.parseResponse(data);
   }
+
+  /**
+   * Vision support — Gemini 1.5 Pro/Flash support image input natively
+   */
+  supportsVision(): boolean {
+    return true; // All Gemini 1.5+ models support multimodal input
+  }
+
+  async generateTextWithImage(
+    prompt: string,
+    imageBase64: string,
+    settings: GenerationSettings,
+  ): Promise<ProviderResponse> {
+    const url = `${this.getApiUrl()}/models/${this.baseConfig.model}:generateContent?key=${this.userConfig.apiKey}`;
+
+    const body = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/png',
+                data: imageBase64,
+              },
+            },
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: settings.temperature,
+        maxOutputTokens: settings.maxTokens,
+      },
+      systemInstruction: settings.systemPrompt
+        ? {
+            parts: [{ text: settings.systemPrompt }],
+          }
+        : undefined,
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      this.handleApiError(response, data);
+    }
+
+    return this.parseResponse(data);
+  }
 }

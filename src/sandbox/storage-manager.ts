@@ -13,6 +13,7 @@ import {
   SavedPrompt,
   RenameSettings,
   RenamePreset,
+  ProviderGroup,
 } from '../shared/types';
 import { migrateSettings } from '../shared/settings-migration';
 import {
@@ -25,6 +26,15 @@ import {
 } from '../shared/constants';
 
 /**
+ * Shared namespace for cross-plugin provider sharing.
+ * All UIXRay plugins use this same namespace to read/write provider groups
+ * via figma.root.setSharedPluginData / getSharedPluginData.
+ */
+const SHARED_NAMESPACE = 'uixray-providers';
+const SHARED_GROUPS_KEY = 'providerGroups';
+const SHARED_UPDATED_KEY = 'lastUpdated';
+
+/**
  * Менеджер для работы с figma.clientStorage
  */
 export class StorageManager {
@@ -34,7 +44,7 @@ export class StorageManager {
   private renameSettingsCache: RenameSettings | null = null;
 
   /**
-   * Загрузка настроек из clientStorage
+   * Загрузка настроек из clientStorage + кросс-плагинный sync провайдеров
    */
   async loadSettings(): Promise<PluginSettings> {
     // Возвращаем из кеша если есть
@@ -51,6 +61,8 @@ export class StorageManager {
         // Настроек нет - создаём дефолтные
         console.log('[StorageManager] No settings found, creating defaults');
         this.cache = { ...DEFAULT_SETTINGS };
+        // Check if another UIXRay plugin has shared provider groups
+        await this.syncProvidersFromShared(this.cache);
         await this.saveSettings(this.cache);
         return this.cache;
       }
@@ -66,6 +78,9 @@ export class StorageManager {
         await this.saveSettings(this.cache);
       }
 
+      // Cross-plugin sync: check if shared namespace has newer provider groups
+      await this.syncProvidersFromShared(this.cache);
+
       return this.cache;
     } catch (error) {
       console.error('[StorageManager] Failed to load settings:', error);
@@ -75,7 +90,53 @@ export class StorageManager {
   }
 
   /**
-   * Сохранение настроек в clientStorage
+   * Синхронизация провайдеров из кросс-плагинного shared namespace.
+   * Если другой UIXRay плагин (TT Typographer и др.) обновил провайдеров,
+   * мы подтягиваем их в свои настройки.
+   */
+  private async syncProvidersFromShared(settings: PluginSettings): Promise<void> {
+    try {
+      const sharedRaw = figma.root.getSharedPluginData(SHARED_NAMESPACE, SHARED_GROUPS_KEY);
+      if (!sharedRaw) return;
+
+      const sharedGroups: ProviderGroup[] = JSON.parse(sharedRaw);
+      if (!sharedGroups || sharedGroups.length === 0) return;
+
+      const sharedTsStr = figma.root.getSharedPluginData(SHARED_NAMESPACE, SHARED_UPDATED_KEY);
+      const sharedTimestamp = sharedTsStr ? parseInt(sharedTsStr, 10) || 0 : 0;
+      const localTimestamp = settings.lastUpdated || 0;
+
+      const localGroups = settings.providerGroups || [];
+
+      if (localGroups.length === 0) {
+        // No local providers — adopt shared ones
+        console.log('[StorageManager] No local providers, adopting shared providers from another UIXRay plugin');
+        settings.providerGroups = sharedGroups;
+        return;
+      }
+
+      if (sharedTimestamp > localTimestamp) {
+        // Shared is newer — another plugin updated providers
+        console.log('[StorageManager] Shared providers are newer, syncing from shared namespace');
+        settings.providerGroups = sharedGroups;
+        return;
+      }
+
+      // Local is newer or same — push local to shared
+      if (localTimestamp > sharedTimestamp && localGroups.length > 0) {
+        try {
+          figma.root.setSharedPluginData(SHARED_NAMESPACE, SHARED_GROUPS_KEY, JSON.stringify(localGroups));
+          figma.root.setSharedPluginData(SHARED_NAMESPACE, SHARED_UPDATED_KEY, String(localTimestamp));
+          console.log('[StorageManager] Local providers are newer, pushed to shared namespace');
+        } catch { /* ignore */ }
+      }
+    } catch (error) {
+      console.warn('[StorageManager] Failed to sync providers from shared namespace:', error);
+    }
+  }
+
+  /**
+   * Сохранение настроек в clientStorage + кросс-плагинный шаринг провайдеров
    */
   async saveSettings(settings: PluginSettings): Promise<void> {
     try {
@@ -85,6 +146,21 @@ export class StorageManager {
       settings.lastUpdated = Date.now();
       await figma.clientStorage.setAsync(STORAGE_KEY_SETTINGS, settings);
       this.cache = settings;
+
+      // Cross-plugin provider sharing: write provider groups to shared namespace
+      // so other UIXRay plugins (TT Typographer, etc.) can read them
+      if (settings.providerGroups && settings.providerGroups.length > 0) {
+        try {
+          const groupsJson = JSON.stringify(settings.providerGroups);
+          const timestamp = String(settings.lastUpdated);
+          figma.root.setSharedPluginData(SHARED_NAMESPACE, SHARED_GROUPS_KEY, groupsJson);
+          figma.root.setSharedPluginData(SHARED_NAMESPACE, SHARED_UPDATED_KEY, timestamp);
+          console.log('[StorageManager] Provider groups synced to shared namespace');
+        } catch (sharedError) {
+          // Shared data may fail in some contexts (e.g., no document open), local is sufficient
+          console.warn('[StorageManager] Failed to sync providers to shared namespace:', sharedError);
+        }
+      }
 
       console.log('[StorageManager] Settings saved successfully to clientStorage');
     } catch (error) {

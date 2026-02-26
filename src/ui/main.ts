@@ -121,9 +121,22 @@ class PluginUI {
         );
         break;
 
-      // Batch Progress (для будущего использования)
+      // Batch Progress
       case 'batch-progress':
-        // TODO: показывать прогресс-бар в Generate панели
+        this.generatePanel.handleBatchProgress(
+          message.progress.current,
+          message.progress.total,
+          message.progress.currentNodeName,
+          message.progress.percentage,
+        );
+        break;
+
+      // Undo result
+      case 'undo-result':
+        this.showNotification(
+          `Undo: restored ${message.restoredCount} layer${message.restoredCount !== 1 ? 's' : ''}`,
+          'success'
+        );
         break;
 
       // Selected Text
@@ -160,7 +173,7 @@ class PluginUI {
   }
 
   /**
-   * Setup global event listeners (tabs, notifications)
+   * Setup global event listeners (tabs, notifications, keyboard shortcuts)
    */
   private setupGlobalEventListeners(): void {
     // Tabs
@@ -184,7 +197,8 @@ class PluginUI {
         if (content && content.classList.contains('collapsible-content')) {
           const isVisible = content.style.display !== 'none';
           content.style.display = isVisible ? 'none' : 'block';
-          header.textContent = header.textContent?.replace(isVisible ? '▼' : '▲', isVisible ? '▲' : '▼') || '';
+          // ▲ = expanded, ▼ = collapsed
+          header.textContent = header.textContent?.replace(isVisible ? '▲' : '▼', isVisible ? '▼' : '▲') || '';
         }
       });
     });
@@ -194,16 +208,84 @@ class PluginUI {
     document.getElementById('test-yandex-btn')?.addEventListener('click', () => this.testConnection('yandex'));
     document.getElementById('test-openai-btn')?.addEventListener('click', () => this.testConnection('openai-compatible'));
     document.getElementById('test-translate-btn')?.addEventListener('click', () => this.testTranslation());
+
+    // Global keyboard shortcuts
+    this.setupKeyboardShortcuts();
+  }
+
+  /**
+   * Setup global keyboard shortcuts
+   *
+   * Shortcuts:
+   * - Ctrl/Cmd+Enter: Trigger generation (when Generate panel is active)
+   * - Escape: Cancel generation / close open modal
+   * - Ctrl/Cmd+Shift+C: Copy last generation result to clipboard
+   */
+  private setupKeyboardShortcuts(): void {
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+
+      // Ctrl/Cmd+Enter — trigger generation
+      if (isMod && e.key === 'Enter') {
+        const generatePanel = document.getElementById('generate-panel');
+        if (generatePanel?.classList.contains('active')) {
+          e.preventDefault();
+          this.generatePanel.triggerGenerate();
+        }
+        return;
+      }
+
+      // Escape — cancel generation or close modals
+      if (e.key === 'Escape') {
+        // Try to close open modals first
+        const openModal = document.querySelector('.prompts-modal-overlay[style*="display: flex"], .modal[style*="display: flex"], .modal[style*="display: block"]') as HTMLElement;
+        if (openModal) {
+          openModal.style.display = 'none';
+          return;
+        }
+
+        // Cancel ongoing generation
+        this.generatePanel.triggerCancel();
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+C — copy last result to clipboard
+      if (isMod && e.shiftKey && (e.key === 'C' || e.key === 'c')) {
+        e.preventDefault();
+        this.generatePanel.copyLastResultToClipboard();
+        return;
+      }
+
+      // Ctrl/Cmd+Z — undo last operation (only when NOT in a text input)
+      if (isMod && !e.shiftKey && (e.key === 'Z' || e.key === 'z')) {
+        const activeEl = document.activeElement;
+        const isInInput = activeEl instanceof HTMLTextAreaElement ||
+          activeEl instanceof HTMLInputElement;
+        if (!isInInput) {
+          e.preventDefault();
+          sendToSandbox({
+            type: 'undo-last-operation',
+            id: generateUniqueId(),
+          });
+          return;
+        }
+      }
+    });
   }
 
   /**
    * Switch tabs
    */
   private switchTab(tabName: string): void {
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('active');
+      tab.setAttribute('aria-selected', 'false');
+    });
     document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
 
-    document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+    const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+    activeTab?.classList.add('active');
+    activeTab?.setAttribute('aria-selected', 'true');
     document.getElementById(`${tabName}-panel`)?.classList.add('active');
   }
 

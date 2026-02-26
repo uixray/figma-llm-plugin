@@ -72,6 +72,7 @@ function migrateV1ToV2(oldSettings: any): PluginSettings {
         baseConfigId: baseConfig.id,
         name: yandexConfig.name || 'Yandex Cloud (migrated)',
         apiKey: yandexConfig.apiKey,
+        folderId: yandexConfig.folderId, // ← preserve Folder ID (required for Yandex API)
         enabled: true,
         createdAt: Date.now(),
       });

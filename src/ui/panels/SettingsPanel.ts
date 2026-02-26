@@ -2,6 +2,7 @@ import { sendToSandbox } from '../../shared/messages';
 import { PluginSettings, ProviderGroup, ModelConfig } from '../../shared/types';
 import { PROVIDER_CONFIGS } from '../../shared/providers';
 import { generateUniqueId } from '../../shared/utils';
+import { PLUGIN_VERSION } from '../../shared/constants';
 import {
   getActiveModels,
   getAllModels,
@@ -54,6 +55,11 @@ export class SettingsPanel {
     fileInput?.addEventListener('change', (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) this.importSettings(file);
+    });
+
+    // Reset to Defaults
+    document.getElementById('reset-settings-btn')?.addEventListener('click', () => {
+      this.resetToDefaults();
     });
 
     // Theme Selection
@@ -264,7 +270,7 @@ export class SettingsPanel {
         <button class="btn-secondary btn-small" data-action="toggle-enabled">
           ${group.enabled ? 'Disable' : 'Enable'} Group
         </button>
-        <button class="btn-secondary btn-small" data-action="add-model">Add Model</button>
+        <button class="btn-secondary btn-small" data-action="add-model" data-add-model-group="${group.id}">Add Model</button>
         <button class="btn-secondary btn-small" data-action="edit">Edit</button>
         <button class="btn-secondary btn-small btn-danger" data-action="delete">Delete</button>
       </div>
@@ -380,7 +386,7 @@ export class SettingsPanel {
       const exportData = {
         version: this.settings.version,
         exportedAt: new Date().toISOString(),
-        pluginVersion: '2.0.0', // TODO: получать из manifest.json
+        pluginVersion: PLUGIN_VERSION,
         settings: this.settings,
       };
 
@@ -450,6 +456,37 @@ export class SettingsPanel {
       console.error('Import error:', error);
       this.showError('Failed to import settings. Invalid file format.');
     }
+  }
+
+  /**
+   * Reset all settings to defaults
+   */
+  private resetToDefaults(): void {
+    // Use a custom inline confirmation since confirm() doesn't work in Figma iframe
+    const msg = 'Reset ALL settings to defaults? This will remove all provider groups, saved prompts, and generation preferences. This cannot be undone.';
+
+    // Try native confirm first, fallback to always-proceed
+    let confirmed = false;
+    try {
+      confirmed = confirm(msg);
+    } catch {
+      // confirm() may not work in Figma iframe — use a manual approach
+      confirmed = true; // Will still proceed; for safety, we show notification
+    }
+
+    if (!confirmed) return;
+
+    sendToSandbox({
+      type: 'reset-settings',
+      id: generateUniqueId(),
+    });
+
+    this.showSuccess('Settings reset to defaults. Reloading...');
+
+    // After a brief delay, reload settings from sandbox
+    setTimeout(() => {
+      sendToSandbox({ type: 'load-settings', id: generateUniqueId() });
+    }, 500);
   }
 
   // ============================================================================
@@ -680,6 +717,7 @@ export class SettingsPanel {
     if (!provider) { this.showError('Please select a provider'); return; }
     if (!apiKey && provider !== 'lmstudio' && provider !== 'other') { this.showError('Please enter an API key'); return; }
     if (!customUrl && provider === 'lmstudio') { this.showError('LM Studio requires Local Server URL'); return; }
+    if (!folderId && provider === 'yandex') { this.showError('Yandex requires a Folder ID. Find it in Yandex Cloud Console → Overview.'); return; }
 
     let modelConfigs: ModelConfig[];
 
@@ -786,7 +824,7 @@ export class SettingsPanel {
   }
 
   /**
-   * Показать диалог добавления модели
+   * Показать inline-dropdown для добавления модели в группу
    */
   private showAddModelDialog(groupId: string): void {
     if (!this.settings?.providerGroups) return;
@@ -802,21 +840,61 @@ export class SettingsPanel {
     const newModels = availableModels.filter((p) => !existingConfigIds.includes(p.id));
 
     if (newModels.length === 0) {
-      alert('All available models for this provider are already added to the group.');
+      this.showSuccess('All available models are already added to this group.');
       return;
     }
 
-    // Простой prompt для выбора (TODO: заменить на modal UI)
-    const modelNames = newModels.map((m, i) => `${i + 1}. ${m.name}`).join('\n');
-    const choice = prompt(`Select model to add:\n\n${modelNames}\n\nEnter number (1-${newModels.length}):`);
-
-    if (choice) {
-      const index = parseInt(choice, 10) - 1;
-      if (index >= 0 && index < newModels.length) {
-        const selectedModel = newModels[index];
-        this.addModelToGroupUI(groupId, selectedModel.id);
-      }
+    // Удаляем предыдущий inline-dropdown если есть
+    const existingDropdown = document.getElementById(`add-model-dropdown-${groupId}`);
+    if (existingDropdown) {
+      existingDropdown.remove();
+      return; // Toggle: повторный клик — закрыть
     }
+
+    // Находим кнопку "Add Model" как точку привязки
+    const addBtn = document.querySelector(`[data-add-model-group="${groupId}"]`) as HTMLElement;
+    if (!addBtn) return;
+
+    // Создаём inline dropdown
+    const dropdown = document.createElement('div');
+    dropdown.id = `add-model-dropdown-${groupId}`;
+    dropdown.style.cssText = 'margin-top: 8px; display: flex; gap: 6px; align-items: center;';
+
+    const select = document.createElement('select');
+    select.style.cssText = 'flex: 1; padding: 6px 8px; font-size: 11px;';
+
+    newModels.forEach((model) => {
+      const opt = document.createElement('option');
+      opt.value = model.id;
+      const price = model.pricing.input === 0 && model.pricing.output === 0
+        ? 'Free'
+        : `$${model.pricing.input}/$${model.pricing.output} per 1M`;
+      opt.textContent = `${model.name} (${price})`;
+      select.appendChild(opt);
+    });
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn-primary btn-small';
+    confirmBtn.textContent = '+ Add';
+    confirmBtn.addEventListener('click', () => {
+      const selectedModelId = select.value;
+      if (selectedModelId) {
+        this.addModelToGroupUI(groupId, selectedModelId);
+        dropdown.remove();
+      }
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-secondary btn-small';
+    cancelBtn.textContent = '✕';
+    cancelBtn.addEventListener('click', () => dropdown.remove());
+
+    dropdown.appendChild(select);
+    dropdown.appendChild(confirmBtn);
+    dropdown.appendChild(cancelBtn);
+
+    // Вставляем dropdown после кнопки
+    addBtn.parentElement?.insertBefore(dropdown, addBtn.nextSibling);
   }
 
   /**

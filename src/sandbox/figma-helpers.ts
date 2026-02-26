@@ -1,4 +1,5 @@
 import { TextNodeInfo, DataPreset, NodeGroup, ValueGroup } from '../shared/types';
+import type { PromptVariableContext } from '../shared/utils';
 
 /**
  * Рекурсивный поиск всех текстовых узлов внутри узла
@@ -56,25 +57,111 @@ export async function getSelectedTextNodes(): Promise<TextNodeInfo[]> {
   return textNodes;
 }
 
+// ============================================================================
+// Operation History for Undo
+// ============================================================================
+
+export interface OperationEntry {
+  nodeId: string;
+  oldText: string;
+  newText: string;
+}
+
+export interface OperationRecord {
+  id: string;
+  timestamp: number;
+  type: 'generate' | 'rename';
+  entries: OperationEntry[];
+}
+
+/** In-memory operation history for undo (max entries) */
+const MAX_UNDO_HISTORY = 10;
+const operationHistory: OperationRecord[] = [];
+
 /**
- * Применение текста к нодам
+ * Record an operation in undo history
  */
-export async function applyTextToNodes(text: string, nodeIds: string[]): Promise<number> {
+export function pushOperationToHistory(record: OperationRecord): void {
+  operationHistory.push(record);
+  if (operationHistory.length > MAX_UNDO_HISTORY) {
+    operationHistory.shift();
+  }
+}
+
+/**
+ * Get the last operation for undo (peek without removing)
+ */
+export function getLastOperation(): OperationRecord | null {
+  return operationHistory.length > 0 ? operationHistory[operationHistory.length - 1] : null;
+}
+
+/**
+ * Pop the last operation and undo it (restore old text values)
+ * Returns the number of nodes restored, or 0 if nothing to undo.
+ */
+export async function undoLastOperation(): Promise<{ restoredCount: number; operationType: string }> {
+  const record = operationHistory.pop();
+  if (!record) return { restoredCount: 0, operationType: '' };
+
+  let restoredCount = 0;
+  for (const entry of record.entries) {
+    try {
+      const node = await figma.getNodeByIdAsync(entry.nodeId);
+      if (node && node.type === 'TEXT') {
+        await loadFontForNode(node);
+        node.characters = entry.oldText;
+        restoredCount++;
+      }
+    } catch (error) {
+      console.error(`Failed to undo node ${entry.nodeId}:`, error);
+    }
+  }
+
+  return { restoredCount, operationType: record.type };
+}
+
+/**
+ * Get undo history length (for UI display)
+ */
+export function getUndoHistoryLength(): number {
+  return operationHistory.length;
+}
+
+/**
+ * Применение текста к нодам (с записью в историю для undo)
+ */
+export async function applyTextToNodes(text: string, nodeIds: string[], operationId?: string): Promise<number> {
   let appliedCount = 0;
+  const entries: OperationEntry[] = [];
 
   for (const nodeId of nodeIds) {
     try {
       const node = await figma.getNodeByIdAsync(nodeId);
 
       if (node && node.type === 'TEXT') {
+        // Save old text for undo
+        const oldText = node.characters;
+
         // Загружаем шрифт перед изменением текста
         await loadFontForNode(node);
         node.characters = text;
         appliedCount++;
+
+        entries.push({ nodeId, oldText, newText: text });
       }
     } catch (error) {
       console.error(`Failed to apply text to node ${nodeId}:`, error);
     }
+  }
+
+  // Record operation for undo if there were changes
+  if (entries.length > 0 && operationId) {
+    pushOperationToHistory({
+      id: operationId,
+      timestamp: Date.now(),
+      type: 'generate',
+      entries,
+    });
   }
 
   return appliedCount;
@@ -319,4 +406,130 @@ export async function reverseRenameByContent(preset: DataPreset): Promise<{ node
   }
 
   return { nodesRenamed };
+}
+
+// ============================================================================
+// Vision: Export node as base64 image
+// ============================================================================
+
+/**
+ * Export a Figma node as a base64-encoded PNG image.
+ * Automatically reduces scale if the result exceeds maxSizeBytes.
+ * @param node The node to export
+ * @param maxSizeBytes Maximum image size in bytes (default: 1MB)
+ * @returns Base64-encoded PNG string (without data URI prefix)
+ */
+export async function exportNodeAsBase64(
+  node: SceneNode,
+  maxSizeBytes: number = 1_048_576,
+): Promise<string> {
+  let scale = 2; // Start with 2x for good quality
+  let bytes: Uint8Array = new Uint8Array(0);
+
+  // Try decreasing scales until we're under the size limit
+  while (scale >= 0.25) {
+    bytes = await node.exportAsync({
+      format: 'PNG',
+      constraint: { type: 'SCALE', value: scale },
+    });
+
+    if (bytes.length <= maxSizeBytes) {
+      break;
+    }
+
+    scale /= 2;
+    console.log(`[Vision] Image too large (${bytes.length} bytes), reducing scale to ${scale}x`);
+  }
+
+  // Convert Uint8Array to base64 using Figma's built-in encoder
+  return figma.base64Encode(bytes);
+}
+
+/**
+ * Export the first selected node as base64 image.
+ * Returns null if no exportable node is selected.
+ */
+export async function exportSelectionAsBase64(maxSizeBytes?: number): Promise<string | null> {
+  const selection = figma.currentPage.selection;
+  if (selection.length === 0) return null;
+
+  const node = selection[0];
+
+  // Only export nodes that have visual content
+  if ('exportAsync' in node) {
+    try {
+      return await exportNodeAsBase64(node, maxSizeBytes);
+    } catch (error) {
+      console.error('[Vision] Export failed:', error);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+// ============================================================================
+// Prompt Variable Context
+// ============================================================================
+
+/**
+ * Find the nearest containing FRAME ancestor of a node
+ */
+function findNearestFrame(node: BaseNode): FrameNode | null {
+  let current = node.parent;
+  while (current) {
+    if (current.type === 'FRAME') return current as FrameNode;
+    current = current.parent;
+  }
+  return null;
+}
+
+/**
+ * Get sibling names (other children of the same parent)
+ */
+function getSiblingNames(node: BaseNode, maxCount: number = 10): string[] {
+  const parent = node.parent;
+  if (!parent || !('children' in parent)) return [];
+
+  return (parent as any).children
+    .filter((child: BaseNode) => child.id !== node.id)
+    .slice(0, maxCount)
+    .map((child: BaseNode) => child.name);
+}
+
+/**
+ * Collect prompt variable context from the current Figma selection.
+ * Returns context based on the first selected node.
+ */
+export function getPromptVariableContext(): PromptVariableContext {
+  const selection = figma.currentPage.selection;
+
+  if (selection.length === 0) {
+    return {
+      layer_name: '',
+      layer_type: '',
+      layer_text: '',
+      parent_name: '',
+      frame_name: '',
+      page_name: figma.currentPage.name,
+      siblings: '',
+      selection_count: '0',
+    };
+  }
+
+  const firstNode = selection[0];
+  const parentNode = firstNode.parent;
+  const nearestFrame = findNearestFrame(firstNode);
+  const siblings = getSiblingNames(firstNode);
+
+  return {
+    layer_name: firstNode.name,
+    layer_type: firstNode.type,
+    layer_text: firstNode.type === 'TEXT' ? (firstNode as TextNode).characters : '',
+    parent_name: parentNode ? parentNode.name : '',
+    frame_name: nearestFrame ? nearestFrame.name : '',
+    page_name: figma.currentPage.name,
+    siblings: siblings.join(', '),
+    selection_count: String(selection.length),
+  };
 }

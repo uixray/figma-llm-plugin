@@ -374,9 +374,11 @@ export interface SavedPrompt {
   id: string; // UUID
   name: string; // Название промпта
   content: string; // Текст промпта
+  systemPrompt?: string; // Системный промпт (optional)
   category?: string; // Категория: 'marketing', 'technical', 'creative', 'general'
   tags?: string[]; // Теги для поиска
   preferredProviderId?: string; // Preferred provider config ID for this prompt
+  isBuiltIn?: boolean; // Whether this is a built-in prompt (not editable)
   usageCount: number; // Счётчик использований
   createdAt: number; // timestamp
   updatedAt: number; // timestamp

@@ -3,6 +3,7 @@ import { t, setLanguage, getLanguage } from '../../shared/i18n';
 import type { Language } from '../../shared/i18n';
 import { applyTheme, type Theme } from '../../shared/theme';
 import { i18n } from '../i18n-ui';
+import { PLUGIN_VERSION, PLUGIN_BUILD } from '../../shared/constants';
 
 /**
  * Help Panel - FAQ and instructions for users
@@ -19,8 +20,12 @@ export class HelpPanel {
     this.loadPreferences();
   }
 
+  /**
+   * Setup event listeners ONCE on the container using event delegation.
+   * This method is only called from the constructor — never from rerender().
+   */
   private setupEventListeners(): void {
-    // Accordion toggle
+    // All events delegated on the container (survives innerHTML rebuilds)
     this.container.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       const accordionHeader = target.closest('.accordion-header');
@@ -33,23 +38,18 @@ export class HelpPanel {
       }
     });
 
-    // Language select
-    const helpLangSelect = document.getElementById('help-language-select') as HTMLSelectElement;
-    if (helpLangSelect) {
-      helpLangSelect.addEventListener('change', (e) => {
-        const lang = (e.target as HTMLSelectElement).value as Language;
-        this.handleLanguageChange(lang);
-      });
-    }
+    // Delegated change listener for language and theme selects
+    this.container.addEventListener('change', (e) => {
+      const target = e.target as HTMLElement;
 
-    // Theme select
-    const helpThemeSelect = document.getElementById('help-theme-select') as HTMLSelectElement;
-    if (helpThemeSelect) {
-      helpThemeSelect.addEventListener('change', (e) => {
-        const theme = (e.target as HTMLSelectElement).value as Theme;
+      if (target.id === 'help-language-select') {
+        const lang = (target as HTMLSelectElement).value as Language;
+        this.handleLanguageChange(lang);
+      } else if (target.id === 'help-theme-select') {
+        const theme = (target as HTMLSelectElement).value as Theme;
         this.handleThemeChange(theme);
-      });
-    }
+      }
+    });
   }
 
   /**
@@ -101,7 +101,8 @@ export class HelpPanel {
   public rerender(): void {
     const savedAccordions = new Map(this.accordions);
     this.render();
-    this.setupEventListeners();
+    // NOTE: setupEventListeners() is NOT called here — delegated listeners
+    // on this.container survive innerHTML rebuilds.
     this.loadPreferences();
 
     // Restore open accordion states
@@ -210,6 +211,10 @@ export class HelpPanel {
         ${this.renderAccordion('lmstudio-setup', t('help.lmstudio.title'), this.renderLMStudioSetup())}
         ${this.renderAccordion('proxy-info', t('help.proxy.title'), this.renderProxyInfo())}
         ${this.renderAccordion('troubleshooting', t('help.troubleshooting.title'), this.renderTroubleshooting())}
+      </div>
+
+      <div class="help-version">
+        UText v${PLUGIN_VERSION} · Build ${PLUGIN_BUILD}
       </div>
     `;
   }

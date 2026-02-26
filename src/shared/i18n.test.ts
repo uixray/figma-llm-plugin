@@ -2,7 +2,7 @@
  * Tests for i18n.ts
  */
 
-import { setLanguage, getLanguage, t, translations, Language } from './i18n';
+import { setLanguage, getLanguage, t, translations, Language } from './i18n/index';
 
 describe('i18n', () => {
   // Reset language to default before each test
@@ -172,7 +172,7 @@ describe('i18n', () => {
 
         Object.values(translation).forEach((value) => {
           expect(value).toBeTruthy();
-          expect(value.length).toBeGreaterThan(0);
+          expect((value as string).length).toBeGreaterThan(0);
         });
       });
     });
